@@ -1,0 +1,47 @@
+{
+  "name": "vue-mfe",
+  "version": "0.1.4",
+  "description": "A micro-frontend implementation based on Vue.js.",
+  "sideEffects": false,
+  "main": "dist/vue-mfe.common.js",
+  "module": "dist/vue-mfe.esm.js",
+  "unpkg": "dist/vue-mfe.js",
+  "jsdelivr": "dist/vue-mfe.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "rollup -wm -c build/rollup.dev.config.js",
+    "build": "node build/build.js",
+    "lint": "eslint src test examples",
+    "docs": "vuepress dev docs",
+    "docs:build": "vuepress build docs",
+    "publish-lab": "npm version patch && npm publish --registry=http://172.16.0.132:18081/repository/npm-lab/ && npm run git-push",
+    "git-push": "git add . && git commit -m \"update: publish package\" && git push"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vuchan/vue-mfe"
+  },
+  "keywords": [
+    "vue-mfe",
+    "micro-frontend",
+    "vue-micro-frontend",
+    "vue micro frontend"
+  ],
+  "author": [
+    "vuchan.c.wu@yzw.cn",
+    "givingwu@gmail.com"
+  ],
+  "dependencies": {
+    "vue": "^2.6.10",
+    "vue-router": "^3.0.6"
+  },
+  "devDependencies": {
+    "rollup": "^0.56.4",
+    "rollup-plugin-buble": "^0.19.2",
+    "rollup-plugin-commonjs": "^9.0.0",
+    "rollup-plugin-node-resolve": "^3.0.3",
+    "rollup-plugin-replace": "^2.0.0",
+    "rollup-watch": "^4.0.0"
+  },
+  "license": "MIT"
+}

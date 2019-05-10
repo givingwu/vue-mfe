@@ -1,0 +1,10 @@
+/build
+/example
+/node_modules
+/src
+.npmrc
+.gitignore
+createPortalApp.js
+interface.js
+*.log
+*.lock
