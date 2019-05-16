@@ -4,12 +4,13 @@ window.__domain__app__foo = (function() {
 
   return function(app) {
     return new Promise((resolve, reject) => {
-      if (Math.random() * 10 > 0.2) {
+      if (Math.random() > 0.5) {
         resolve(routes)
       } else {
         const msg = 'initialize domain-app foo failed'
-        alert(msg)
+        console.error(msg)
         reject(msg)
+        throw new Error(msg)
       }
     })
   }

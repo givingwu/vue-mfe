@@ -318,7 +318,8 @@ function resetRouter(routes) {
  * @summary
  *  1. 除非调用 resetRouter 方法，否则所有现有路由的 path 和 name 都是不允许被覆盖的
  * @issue
- *  + 在 parentPath 不为 '/' 的情况下，route 的 parentPath 如果带有 '/' 前缀，调用 `VueRouter.createMatcher` 的方法有 bug
+ *  + route 的 path 不能带有 '/' 前缀
+ *  `Note that nested paths that start with / will be treated as a root path. This allows you to leverage the component nesting without having to use a nested URL.`
  *  + route: { path: '/b', parentPath: '/error' } 在 master-router 存在 '/error' 的前提下，调用 router.match('/error/b') 无法 match
  */
 function addDomainRoutes(newRoutes, prependPath) {
@@ -330,7 +331,7 @@ function addDomainRoutes(newRoutes, prependPath) {
   var unRegisteredRoutes = newRoutes
     .filter(function (route) {
       /* 过滤掉存在单个 parentPath 的路由 */
-      if (route.parentPath !== undefined) {
+      if (!route.parentPath) {
         noParentPathRoutes.push(route);
         return false
       } else {
@@ -434,7 +435,8 @@ function registerRoute(
   var route = Object.assign(
     {
       path:
-        parentPath !== '/' && (
+        (
+          parentPath !== '/' &&
           path.startsWith('/')
             ? path.replace(/^\/*/, '')
             : path

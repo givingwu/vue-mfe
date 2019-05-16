@@ -1,5 +1,4 @@
-const Home = { template: '<div>This is Home</div>' }
-
+const Home = { template: '<div>This is Home<div><router-view></router-view></div></div>' }
 // 创建主路由
 const MasterRouter = VueMfe.createMasterRouter({
   // VueRouter 配置项
@@ -27,12 +26,12 @@ new Vue({
   router: MasterRouter,
   template: `
     <div id="app">
-      <h1>Named Routes</h1>
+      <h1>Vue-MFE Demo</h1>
       <p>Current route name: {{ $route.name }}</p>
       <ul>
         <li><router-link :to="{ name: 'home' }">home</router-link></li>
         <li><router-link :to="{ path: '/foo' }">domain-app foo</router-link></li>
-        <li><router-link :to="{ path: '/bar', params: { id: 123 }}">domain-app bar</router-link></li>
+        <li><router-link :to="{ path: '/bar/123' }">domain-app bar</router-link></li>
       </ul>
       <router-view class="view"></router-view>
     </div>
