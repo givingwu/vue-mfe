@@ -15,9 +15,9 @@ MFE 是英文 micro front-end 的缩写，即**微前端**，对于**微前端**
 + [美团-用微前端的方式搭建类单页应用](https://tech.meituan.com/2018/09/06/fe-tiny-spa.html)
 + [中台微服务了，那前端呢？](https://mp.weixin.qq.com/s/hke92257-EB1ksrV6tb-mg)
 
-## communities implementations
+## 社区实现
 
-Framework Support & Project Name Table:
+社区的实现(communities implementations)，Framework Support & Projects Table:
 
 | all                                     | vue                                          | react                                                                                 | angular                                |
 | --------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------- |
@@ -26,17 +26,21 @@ Framework Support & Project Name Table:
 |                                         |                                              | [react-universal-component](https://github.com/faceyspacey/react-universal-component) |                                        |
 
 
-# What?
+## What?
 `vue-mfe` 是一个用于快速创建基于 vue.js 微前端 SPA 的 JavaScript 库。
 
 ## Why?
 
-围绕 [Vue.js](https://vuejs.org/) 技术栈实现，无任何重复依赖，核心代码不超过 400 行。
+围绕 [Vue.js](https://vuejs.org/) 技术栈定制实现，无任何重复依赖。
 
 + 非常简单的 API
 + 无任何侵入式代码
-+ 动态注入嵌套路由
-+ 懒加载子域名资源
++ 增强 [vue-router](http://router.vuejs.org) 功能
+  + 中心化路由
+  + 懒装载路由
+  + 支持任意嵌套
+  + 提供 `router.helpers`
+
 
 ## How?
 ![vue-mfe-architecture](/images/vue-mfe-architecture.jpg)
@@ -45,27 +49,36 @@ Framework Support & Project Name Table:
 2. 而在 `createMasterRouter` 方法内部调用了 `createPageRouter` => `createRouterInterceptor` 注入 before-hook 拦截判断 `to.path` 是否 `matched`
 3. 如果**不匹配**则理解为一个需要懒加载的路由，开始调用 `config.getResource()` 方法**动态请求资源**
 4. 请求资源成功后通过 `installScripts` 串行 `lazyloadScript` 注入到当前页面上下文
+
 ::: tip
    由于是不同的 webpack-build-runtime 所以 domain-app 对 master-runtime 来说是 [webpack unmanaged bundle](README.md#webpack-unmanaged-bundle)，这里暂时用了 [UMD](https://www.davidbcalhoun.com/2014/what-is-amd-commonjs-and-umd/) 的打包格式来处理，这并不是最好的方案，后续找到更好的方案会优化。
 :::
+
 5. 注入完 UMD 格式的 script 之后会拿到当前 domain-app `export` 出来的路由，再调用 `installModule` **动态注入路由**
 6. 注入路由会**校验**、**去重**相同的 path 和 name，注册完成后调用 `next(to)` 完成闭环。
 
 
 ## installation
 
-首先将 path 在 terminal 中切到当前项目。
+### use CDN
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue-router/dist/vue-router.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue-mfe/dist/vue-mfe.js"></script>
+```
 
 ### 内网用户
 
-配置当前项目的 npmrc:
+1. 首先在 terminal 中将 `path` 切到当前项目
+2. 配置当前项目的 npmrc:
 
 ```bash
 touch .npmrc
 vim .npmrc
 ```
 
-复制并粘贴如下内容：
+3. 复制并粘贴如下内容：
 
 <<< @/.npmrc
 
@@ -73,7 +86,7 @@ vim .npmrc
 
 ### 安装指南
 
-仅[主运行时](getting-started.md#master-runtime)需要安装 `vue-mfe`，而 [domain-app](getting-started.md#domain-app) 直接安装`master-runtime`即可。
+仅[主运行时](getting-started.md#master-runtime)需要安装 `vue-mfe`，而 [domain-app](getting-started.md#domain-app) 直接安装[主运行时](getting-started.md#master-runtime)即可。
 
 ### 主运行时
 
@@ -95,7 +108,7 @@ cnpm i --registry=http://172.16.0.132:18081/repository/npm
 
 ### domain-app
 
-在内网仓库中 `ibuild-portal-lte`，是我们团队的主运行时项目。所以在 domain 应用中，需要安装它并且更改 vue.config.js 的 `entry`。
+在内网仓库中 `ibuild-portal-lte`，是我们团队的主运行时项目。所以在 domain 应用中，需要安装它并更改 vue.config.js 的 `entry` 配置。
 
 #### yarn
 ```bash
@@ -107,7 +120,7 @@ yarn add ibuild-portal-lte -S
 npm install ibuild-portal-lte --save
 ```
 
-## webpack unmanaged bundle
+### unmanaged bundle?
 
 > This needs to be changed if multiple webpack runtimes (from different compilation) are used on the same webpage.
 

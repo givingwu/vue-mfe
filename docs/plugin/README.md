@@ -38,28 +38,25 @@ meta:
 
 查看用法:
 ```bash
-vue-cli-service help package
+npx vue-cli-service help package
 ```
+
+Terminal output:
 
 ```bash
-用法：'vue-cli-service package [options]'
-选项：{
-  description: 'Package to .tgr.gz and upload to server',
-  usage: 'vue-cli-service package [options]',
-  options: {
-    '--host': `specify package-server API url to upload bundled files`,
-    '--download': `specify package-server API url to download static files`,
-    '--name': `specify the name of current bundle package? default: ${PACKAGE_NAME}`,
-    '--output': `specify the output path of bundle files? default: package => ${cwd}/package`,
-    '--upload': `upload bundle file to server or not? default: true`,
-    '--json': `output bundle manifest json or not? default: true => manifest.json`,
-    '--disable-source-map': `disable source map. default: false`,
-  },
-}
+Usage: vue-cli-service package [options]
+
+Options:
+
+  --upload-url         specify package-server API url to upload bundled files
+  --download-url       specify package-server API url to download static files
+  --disable-source-map disable source map. default: false
+  --output-path        specify the output path of bundled files? default: package => /Users/vuchan.c.wu/Development/WorkSpace/ibuild-wf/ibuild-wf-portal/frontend/package
 ```
 
-
 ## RUN
+
+`package` - 打包 DOMAIN-APP 成 微前端应用 的命令。
 
 ```bash
 vue-cli-service package

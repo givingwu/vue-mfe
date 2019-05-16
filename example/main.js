@@ -14,7 +14,7 @@ const MasterRouter = VueMfe.createMasterRouter({
   async getResource() { // 获取需要所有需懒加载的路由入口 JS 文件时被 lazyloader 内部调用
     return await {
       'foo': './domain/foo/index.js',  // `/foo/*` foo 的资源入口
-      'bar': './domain/bar/index.js',  // `/foo/*` foo 的资源入口
+      'bar': './domain/bar/index.js',  // `/bar/*` bar 的资源入口
     }
   },
   getNamespace(name) { // umd 全局变量的命名空间规则

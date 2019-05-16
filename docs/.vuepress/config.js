@@ -14,7 +14,7 @@ module.exports = {
       { text: 'Boilerplate', link: '/boilerplate/' },
     ],
     editLinks: true,
-    sidebarDepth: 3,
+    sidebarDepth: 4,
     sidebar: {
       '/guide/': [
         '',

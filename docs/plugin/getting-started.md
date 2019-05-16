@@ -5,9 +5,11 @@ title: '快速上手'
 
 ## 从零开始
 
-从零演示如何使用`vue-cli-plugin-portal`创建一个微前端 domain 应用。
+从零演示如何使用 `vue-cli-plugin-mfe` 创建一个微前端 domain 应用。
 
-> 截图中涉及的版本号只需要版本号一致或更高即可。
+::: tip
+   建议在编写构建脚本的时候，每次运行下 `npm update vue-cli-plugin-mfe` 已确定当前使用的是最新版本
+:::
 
 ### **安装**最新的 [vue-cli3](http://cli.vuejs.org)
 
@@ -23,21 +25,24 @@ yarn global add @vue/cli
 vue create domain-name // domain-name 最终会被匹配成路由路径
 ```
 
-如图：
-![cli-create-new-project](/images/cli-create-new-project.png)
+GIF:
+
+![vue-cli-create-new-project-features](/images/vue-cli-create-new-project-features.gif)
 
 + **内网用户**，可更改 `--registry`，[如何更改？](/guide/#内网用户)
 
 ### **安装插件**
 
-+ 使用 `vue add portal` 安装 `vue-cli-plugin-portal` 插件
++ 使用 `vue add mfe` 安装 `vue-cli-plugin-mfe` 插件
+
 ```bash
-vue add portal --registry=http://172.16.0.132:18081/repository/npm/
+vue add mfe --registry=http://172.16.0.132:18081/repository/npm/
 ```
 
-+ 安装如图：
+GIF:
 
-![vue-add-portal-plugin](/images/vue-add-portal-plugin.png)
+![vue-cli-add-mfe-plugin](/images/vue-cli-add-mfe-plugin.gif)
+
 
 + 如果遇到文件已存在的**错误**：
 
@@ -47,7 +52,7 @@ vue add portal --registry=http://172.16.0.132:18081/repository/npm/
 
 ```bash
 rm -rf node_module
-vue add portal // 再重新执行 add 试试
+// 再重新执行 add 试试
 ```
 
 + 安装成功:
@@ -63,9 +68,13 @@ vue add portal // 再重新执行 add 试试
 ```bash
 yarn start
 ```
+
 如果遇到缺少依赖的问题，安装一下依赖即可。
 
 
 ## 打包项目
 
-`yarn run package`，打包成功后会被压缩成 `tar` 包并自动上传到 `host`。
+`yarn run package`，打包成功后会被压缩成 `tar` 包并自动上传到 `upload-url`。
+
+
+END.

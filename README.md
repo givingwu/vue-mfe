@@ -13,7 +13,7 @@ Vue-mfe, a micro front-end resolution based on Vue.js.
 ## CONCEPTS
 
 ## FEATURE
-+ very simple with only one method `createMasterRouter`
++ very simple with only one API method `createMasterRouter`
 + dynamic route & dynamic nested route
 + each Micro App entry based on route prefix in `master-runtime`
 
