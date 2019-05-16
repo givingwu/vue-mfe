@@ -96,7 +96,8 @@ function resetRouter(routes) {
  * @summary
  *  1. 除非调用 resetRouter 方法，否则所有现有路由的 path 和 name 都是不允许被覆盖的
  * @issue
- *  + 在 parentPath 不为 '/' 的情况下，route 的 parentPath 如果带有 '/' 前缀，调用 `VueRouter.createMatcher` 的方法有 bug
+ *  + route 的 path 不能带有 '/' 前缀
+ *  `Note that nested paths that start with / will be treated as a root path. This allows you to leverage the component nesting without having to use a nested URL.`
  *  + route: { path: '/b', parentPath: '/error' } 在 master-router 存在 '/error' 的前提下，调用 router.match('/error/b') 无法 match
  */
 function addPortalRoutes(newRoutes = [], prependPath = '/') {
@@ -175,9 +176,7 @@ function registerRoute(
   beforeRoutes = _routes
 ) {
   const completePath = parentPath ? completePaths(path, parentPath) : path
-  const existsPath = parentPath
-    ? pathExists(completePath)
-    : pathExists(completePath)
+  const existsPath = parentPath ? pathExists(completePath) : pathExists(path)
   const existNameWithPath = name && nameExists(name)
 
   assert(existsPath, () => {
@@ -208,23 +207,26 @@ function registerRoute(
     `)
   )
 
+  const route = Object.assign(
+    {
+      path:
+        (
+          parentPath !== '/' &&
+          path.startsWith('/')
+            ? path.replace(/^\/*/, '')
+            : path
+        ) /* fix: addPortalRoutes() @issue */,
+      name,
+    },
+    props || {}
+  )
+
   /* 如果存在 parentPath 且 parentPath 已存在记录 */
   if (parentPath && pathExists(parentPath)) {
     /* 递归找到匹配 parentPath 的 matchedRoute */
     const matchedRoute = findRoute(beforeRoutes, parentPath)
 
     if (matchedRoute) {
-      const route = Object.assign(
-        {
-          path:
-            parentPath !== '/' && path.startsWith('/')
-              ? path.replace(/^\/*/, '')
-              : path /* fix: addPortalRoutes() @issue */,
-          name,
-        },
-        props || {}
-      )
-
       if (matchedRoute.children && matchedRoute.children.length) {
         /* 这里不用再判断当前的 matchedRoute.children中 是否已存在相同的 completePath，因为上面的 existsPath 已经处理过 */
         matchedRoute.children.push(route)
@@ -241,9 +243,13 @@ function registerRoute(
       )
     }
   } else {
-    warn(
-      `Register path '${path}' failed, parentPath '${parentPath} does not exist'`
-    )
+    if (parentPath !== undefined && typeof parentPath === 'string') {
+      beforeRoutes.push(route)
+    } else {
+      warn(
+        `Register path '${path}' failed, parentPath '${parentPath} does not exist'`
+      )
+    }
   }
 }
 
