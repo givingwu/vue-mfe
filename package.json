@@ -9,6 +9,7 @@
   "jsdelivr": "dist/vue-mfe.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "serve ./",
     "dev": "rollup -wm -c build/rollup.dev.config.js",
     "build": "node build/build.js",
     "lint": "eslint src test examples",
@@ -36,12 +37,14 @@
     "vue-router": "^3.0.6"
   },
   "devDependencies": {
+    "camelcase": "^5.3.1",
     "rollup": "^0.56.4",
     "rollup-plugin-buble": "^0.19.2",
     "rollup-plugin-commonjs": "^9.0.0",
     "rollup-plugin-node-resolve": "^3.0.3",
     "rollup-plugin-replace": "^2.0.0",
-    "rollup-watch": "^4.0.0"
+    "rollup-watch": "^4.0.0",
+    "terser": "^3.17.0"
   },
   "license": "MIT"
 }
