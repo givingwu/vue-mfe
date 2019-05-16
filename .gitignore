@@ -1,5 +1,8 @@
 /node_modules
-/docs
 .npmrc
+.vscode
+.DS_Store
+*.error
+*.log
 createPortalApp.js
 interface.js
