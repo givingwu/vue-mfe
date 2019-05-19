@@ -1,5 +1,5 @@
 import VueRouter from 'vue-router'
-import { isObject, isArray, isFunction, getWarning, getLogger, resolveModule, isString } from './utils'
+import { isString, isObject, isArray, isFunction, getWarning, getLogger, resolveModule } from './utils'
 import Observer from './helpers/Observer'
 import Lazyloader from './helpers/Lazyloader'
 import EnhancedRouter from './helpers/EnhancedRouter'
@@ -35,7 +35,7 @@ export default class VueMfe extends Observer {
   }
 
   _init() {
-    this.routerHelpers = new EnhancedRouter(this.router)
+    this.helpers = new EnhancedRouter(this.router)
     this.lazyloader = new Lazyloader().setConfig(this.config)
 
     this.router.beforeEach((to, from, next) => {
@@ -49,7 +49,7 @@ export default class VueMfe extends Observer {
 
           this.emit('error', error, args)
         } else {
-          this._installApp(args)
+          this.installApp(args)
         }
       } else {
         next()
@@ -57,18 +57,19 @@ export default class VueMfe extends Observer {
     })
   }
 
-  _installApp(args) {
+  installApp(args) {
     const { name, next, to } = args
 
     this.installedApps[name] = VueMfe.LOAD_STATUS.START
     this.emit('start', args)
 
-    this.lazyloader.load(args)
+    return this.lazyloader.load(args)
       .then((module) => {
-        VueMfe.log(module)
-        return this._installModule(module)
+        VueMfe.log('installApp module', module)
+        return this.installModule(module)
       })
       .then((success) => {
+        VueMfe.log('installApp success', success)
         if (success) {
           this.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS
 
@@ -79,10 +80,11 @@ export default class VueMfe extends Observer {
         }
       })
       .catch(error => {
-        if (!error.code) error.code = VueMfe.ERROR_CODE.LOAD_FAILED
+        if (!(error instanceof Error)) error = new Error(error)
+        if (!error.code) error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED
         this.installedApps[name] = VueMfe.LOAD_STATUS.FAILED
 
-        next(false) // stop navigating to next route
+        next && next(false) // stop navigating to next route
         this.emit('error', error, args)
       })
   }
@@ -99,7 +101,7 @@ export default class VueMfe extends Observer {
    *  3. module is an object with property 'init' and 'routes'
    *    module: { init: Function, routes: Array<Route> }
    */
-  _installModule(module) {
+  installModule(module) {
     module = resolveModule(module)
 
     const router = this.router
@@ -126,25 +128,10 @@ export default class VueMfe extends Observer {
     }
   }
 
-  _checkRoutes(routesOrBool) {
-    if (routesOrBool) {
-      return this.addRoutes(routesOrBool)
-    } else {
-      if (routesOrBool instanceof Error) {
-        routesOrBool.code = VueMfe.ERROR_CODE.APP_INIT_FAILED
-        throw routesOrBool
-      } else {
-        VueMfe.warn('Module ' + name + ' initialize failed.')
-      }
-    }
-
-    return false
-  }
-
   addRoutes(routes, parentPath) {
     if (routes) {
       if (routes.length) {
-        this.routerHelpers.addRoutes(routes, parentPath || this.config.parentPath)
+        this.helpers.addRoutes(routes, parentPath || this.config.parentPath)
 
         return true
       } else {
@@ -167,6 +154,10 @@ export default class VueMfe extends Observer {
     }
 
     return this.installedApps[name] === VueMfe.LOAD_STATUS.SUCCESS
+  }
+
+  preinstall(name) {
+    return name && this.installApp({ name })
   }
 
   /**
@@ -194,23 +185,36 @@ export default class VueMfe extends Observer {
         .shift()
     )
   }
+
+  _checkRoutes(routesOrBool) {
+    if (routesOrBool) {
+      return this.addRoutes(routesOrBool)
+    } else {
+      if (routesOrBool instanceof Error) {
+        routesOrBool.code = VueMfe.ERROR_CODE.APP_INIT_FAILED
+        throw routesOrBool
+      } else {
+        VueMfe.warn('Module ' + name + ' initialize failed.')
+      }
+    }
+
+    return false
+  }
 }
 
 VueMfe.version = '__VERSION__'
-
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,
   getNamespace: (name) => `__domain__app__${name}`,
 }
-
 VueMfe.LOAD_STATUS = {
   SUCCESS: 1,
   START: 0,
   FAILED: -1,
 }
 VueMfe.ERROR_CODE = {
-  LOAD_FAILED: VueMfe.LOAD_STATUS.FAILED,
+  LOAD_ERROR_HAPPENED: VueMfe.LOAD_STATUS.FAILED,
   LOAD_DUPLICATE_WITHOUT_PATH: -2,
   APP_INIT_FAILED: -3,
 }
