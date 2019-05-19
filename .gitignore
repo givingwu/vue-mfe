@@ -1,9 +1,11 @@
 /node_modules
 /old
+/docs
 .npmrc
 .vscode
 .DS_Store
 *.error
 *.log
+*.lock
 createPortalApp.js
 interface.js
