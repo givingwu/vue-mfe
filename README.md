@@ -12,9 +12,8 @@ ___________
 ## FEATURES
 + integrating event-driven design pattern.
 + preinstall or lazyload a micro-app.
-+ enhanced vue-router with `vueMfe.routerHelpers`, [more](./src/helpers/EnhancedRouter.js).
++ enhanced vue-router with `helpers` property, [more](./src/helpers/EnhancedRouter.js).
 + dynamically add child routes to an existing route & nested route.
-
 
 
 ## API
@@ -112,7 +111,7 @@ npm run example:pure
 ## TODO
 + [ ] write unit test cases
 + [ ] write demo with multiple webpack
-+ [ ] write document by vuepress
++ [ ] update docs by vuepress
 
 
 ## Troubleshooting
