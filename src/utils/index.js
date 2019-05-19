@@ -14,6 +14,8 @@ export const isObject = (obj) => obj && typeof obj === 'object'
 
 export const isString = (str) => typeof str === 'string'
 
+export const toArray = (args) => Array.prototype.slice.call(args)
+
 export const hasConsole =
   // eslint-disable-next-line
   typeof console !== 'undefined' && typeof console.warn === 'function'
@@ -30,7 +32,7 @@ export const getLogger = (key) => (args) => {
   return assert(
     isDev,
     // eslint-disable-next-line
-    () => hasConsole && console.log.apply(console, key ? [key, ...args] : args),
+    () => hasConsole && console.log.apply(null, key ? [key, ...toArray(args)] : args),
     noop
   )
 }
@@ -44,7 +46,7 @@ export const getWarning = (key) => (args) => {
   const fn = isDev ? throwError : hasConsole ? console.warn : noop
 
   return assert(true, () => {
-    fn.apply(this, key ? [[key, ...args].join(' > ')] : args)
+    fn.apply(null, key ? [[key, ...toArray(args)].join(' > ')] : args)
   })
 }
 
@@ -99,7 +101,7 @@ export const defineImmutableProp = (obj, key, val) => {
  * @param {Array<Promise<T>>} promises
  * @returns {Promise<T>} the finally result of promises
  */
-export function serialExecute (promises) {
+export const serialExecute = (promises) => {
   return promises.reduce((chain, next) => {
     return chain
       .then((retVal) => next(retVal))
