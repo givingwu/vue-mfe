@@ -4,11 +4,11 @@ import { findRoute, completePath } from '../utils/route'
 
 /**
  * @class EnhancedRouter
- * @description Dynamically add child routes to an existing route
+ * @description Dynamically add child routes to an existing route & provides some `helpers` method
  */
 export default class EnhancedRouter {
-  static warning() {
-    return getWarning(EnhancedRouter.name, arguments)
+  static warn() {
+    return getWarning(EnhancedRouter.name)(arguments)
   }
 
   constructor(router) {
@@ -68,6 +68,7 @@ export default class EnhancedRouter {
    * @param {Array<Route>} oldRoutes
    * @param {Array<Route>} newRoutes
    * @param {?String} parentPath
+   * @returns {Array<Route>} oldRoutes
    */
   mergeRoutes(oldRoutes, newRoutes, parentPath) {
     const needMatchPath = parentPath
@@ -94,7 +95,7 @@ export default class EnhancedRouter {
                   parentPath && path.startsWith('/')
                     ? path = path.replace(/^\/*/, '')
                     : path
-                ) /* fix: addPortalRoutes() @issue */,
+                ) /* fix: @issue that nested paths that start with `/` will be treated as a root path */,
               }))
           }
         }
@@ -110,8 +111,8 @@ export default class EnhancedRouter {
    * @description 递归刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
    * @param {Array<Route>} newRoutes
    * @param {String} parentPath
-   *  1. 来自注册方法 addRoutes(routes, parentPath)
-   *  2. 来自路由自身 { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
+   *  1. from method calls: addRoutes(routes, parentPath)
+   *  2. from route property: { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
    */
   refreshAndCheckState(routes, parentPath) {
     routes.forEach(({ path, parentPath: selfParentPath, name, children }) => {
@@ -122,19 +123,19 @@ export default class EnhancedRouter {
         path = this.getParentPath(path, parentPath, name)
       }
 
-      if (name) {
-        if (!this.nameExists(name)) {
-          this.pathMap[name] = path
-        } else {
-          EnhancedRouter.warning(`The name ${name} in pathMap has been existed`)
-        }
-      }
-
       if (path) {
         if (!this.pathExists(path)) {
           this.pathList.push(path)
         } else {
-          EnhancedRouter.warning(`The name ${name} in pathMap has been existed`)
+          EnhancedRouter.warn(`The path ${path} in pathList has been existed`)
+        }
+      }
+
+      if (name) {
+        if (!this.nameExists(name)) {
+          this.pathMap[name] = path
+        } else {
+          EnhancedRouter.warn(`The name ${name} in pathMap has been existed`)
         }
       }
 
@@ -148,7 +149,7 @@ export default class EnhancedRouter {
     if (this.pathExists(parentPath)) {
       return path = completePath(path, parentPath)
     } else {
-      EnhancedRouter.warning(`Cannot found the parent path ${parentPath} ${name ? 'of ' + name : ''} in Vue-MFE MasterRouter`)
+      EnhancedRouter.warn(`Cannot found the parent path ${parentPath} ${name ? 'of ' + name : ''} in Vue-MFE MasterRouter`)
       return ''
     }
   }
