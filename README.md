@@ -120,7 +120,6 @@ npm run example:pure
 
   + [Multiple Webpack entry points loaded](https://github.com/webpack/webpack/issues/2112)
   + [Dynamic require breaks when using more than one webpack bundle at the same time] (https://github.com/webpack/webpack/issues/3791)
-  + [在同一个页面中加载多个 webpack 实例
-](https://github.com/zh-rocco/fe-notes/issues/1)
+  + [在同一个页面中加载多个 webpack 实例](https://github.com/zh-rocco/fe-notes/issues/1)
   + [How can I combine two completely separate bundles using dynamic bundling?](https://stackoverflow.com/questions/42450048/webpack-how-can-i-combine-two-completely-separate-bundles-using-dynamic-bundlin)
   + [hosting-multiple-react-applications-on-the-same-document](https://medium.jonasbandi.net/hosting-multiple-react-applications-on-the-same-document-c887df1a1fcd)
