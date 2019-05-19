@@ -21,13 +21,12 @@ export default class Lazyloader {
   load({ name }) {
     return this.getRouteEntry(name)
       .then((url) => {
-        const globalVarName = this.getName(name)
         const resource = isFunction(url) ? url() : url
-        Lazyloader.log('resource: ', resource);
+        Lazyloader.log('getRouteEntry resource', resource);
 
         return isDev && isObject(resource) && !isArray(resource)
           ? resource /* if local import('url') */
-          : this.installResources(resource, globalVarName)
+          : this.installResources(isArray(resource) ? resource : [resource], this.getName(name))
       })
   }
 
@@ -70,10 +69,12 @@ export default class Lazyloader {
 
     if (isArray(scripts) && scripts.length) {
       return serialExecute(
-        scripts.map(script => lazyLoadScript(script, name))
-      ).catch(function (error) {
+        scripts.map((script) => () => lazyLoadScript(script, name))
+      ).catch((error) => {
         throw error
       })
+    } else {
+      Lazyloader.warn(`no any valid entry script be found in ${urls}`)
     }
   }
 
