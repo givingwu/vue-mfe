@@ -2,6 +2,7 @@
 /example
 /node_modules
 /src
+/old
 .npmrc
 .gitignore
 createPortalApp.js

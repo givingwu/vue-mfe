@@ -1,16 +1,22 @@
 /*!
-  * vue-mfe v0.1.4
+  * vue-mfe v0.0.1
   * (c) 2019 Vuchan
   * @license MIT
   */
 'use strict';
 
-Object.defineProperty(exports, '__esModule', { value: true });
-
 function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-var Vue = _interopDefault(require('vue'));
 var VueRouter = _interopDefault(require('vue-router'));
+
+var this$1 = undefined;
+var isDev = process.env.NODE_ENV === 'development';
+
+var isMaster = process.env.VUE_APP_MASTER !== undefined;
+
+var isPortal = !isMaster || process.env.VUE_APP_PORTAL !== undefined;
+
+var noop = function () {};
 
 var isArray = function (arr) { return Array.isArray(arr); };
 
@@ -20,60 +26,53 @@ var isObject = function (obj) { return obj && typeof obj === 'object'; };
 
 var isString = function (str) { return typeof str === 'string'; };
 
-/**
- * capitalize
- * @param {String} str
- */
-var capitalize = function (str) {
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
-};
+var hasConsole =
+  // eslint-disable-next-line
+  typeof console !== 'undefined' && typeof console.warn === 'function';
 
-/**
- * camelize
- * @param {String} str
- * @param {Boolean} pascalCase
- */
-var camelize = function (str, pascalCase) {
-  if ( pascalCase === void 0 ) pascalCase = false;
-
-  return str
-    .split(/-|_|\s/g)
-    .map(function (s, i) { return (!pascalCase && i === 0 ? s : capitalize(s)); })
-    .join('')
-};
-
-var resolveModule = function (module) {
-  return (module && module.default) || module
-};
-
-var getAppPrefixName = function (to) { return to.name && to.name.includes('.')
-    ? filterByDelimiter(to.name, '.')
-    : filterByDelimiter(to.path, '/'); };
-
-function filterByDelimiter(str, delimiter) {
-  return (
-    str
-      .split(delimiter)
-      /* filter all params form router to get right name */
-      .filter(
-        function (s) { return !Object.values(GlobalPageRouter.currentRoute.params).includes(s); }
-      )
-      .filter(Boolean)
-      .map(function (s) { return s.trim(); })
-      .shift()
-  )
+function assert(condition, onSuccess, onFailure) {
+  if (condition) {
+    return isFunction(onSuccess) && onSuccess()
+  } else {
+    return isFunction(onFailure) && onFailure()
+  }
 }
 
-var defineImmutableProp = function (obj, key, val) {
-  Object.defineProperty(obj, key, {
-    value: val,
-    configurable: false,
-    enumerable: false,
-    writable: false,
-  });
-};
+var getLogger = function (key) { return function (args) {
+  return assert(
+    isDev,
+    // eslint-disable-next-line
+    function () { return hasConsole && console.log.apply(console, key ? [key ].concat( args) : args); },
+    noop
+  )
+}; };
 
-var serialExecute = function (promises) {
+var getWarning = function (key) { return function (args) {
+  var throwError = function (err) {
+    throw new Error(err)
+  };
+
+  // eslint-disable-next-line
+  var fn = isDev ? throwError : hasConsole ? console.warn : noop;
+
+  return assert(true, function () {
+    fn.apply(this$1, key ? [[key ].concat( args).join(' > ')] : args);
+  })
+}; };
+
+/**
+ * @description resolve module whether ES Module or CommandJS module
+ * @param {Module} module
+ * @returns {any*}
+ */
+var resolveModule = function (module) { return ((module && module.default) || module); };
+
+/**
+ * @description execute an array of promises serially
+ * @param {Array<Promise<T>>} promises
+ * @returns {Promise<T>} the finally result of promises
+ */
+function serialExecute (promises) {
   return promises.reduce(function (chain, next) {
     return chain
       .then(function (retVal) { return next(retVal); })
@@ -81,19 +80,123 @@ var serialExecute = function (promises) {
         throw err
       })
   }, Promise.resolve())
+}
+
+/**
+ * @class Observer
+ * @author VuChan
+ * @constructor
+ * @see https://github.com/vuchan/fe-utils/blob/master/helpers/Obersver.js
+ * @return {Object} Observer Design Pattern Implementation
+ */
+function Observer() {
+  this.events = {};
+}
+
+/**
+ * observer.on('eventName', function listener() {})
+ * @param  {string} eventName
+ * @param  {Function} listener
+ * @return {Array<Function>}
+ */
+Observer.prototype.on = function(eventName, listener) {
+  if (!this.events[eventName]) {
+    this.events[eventName] = [ listener ];
+  } else {
+    this.events[eventName].push(listener);
+  }
+
+  return this.events[eventName];
 };
 
 /**
- * lazyLoadScript
- * @author Vuchan
- * @desc lazy load script form a remote url then returns a promise
+ * observer.off('eventName', function listener() {})
+ * @param  {string} eventName
+ * @param  {Function} listener
+ * @return {boolean|null}
+ */
+Observer.prototype.off = function(eventName, listener) {
+  if (eventName) {
+    var handlers = this.events[eventName];
+
+    if (handlers && handlers.length) {
+      if (listener) {
+        return (handlers = handlers.filter(function (handler) { return handler === listener; }));
+      } else {
+        delete this.events[eventName];
+        return true;
+      }
+    }
+  } else {
+    this.events = {};
+  }
+};
+
+/**
+ * observer.emit('eventName', data1, data2, ...dataN)
+ * @param  {string} eventName
+ * @param  {Array}  data
+ * @return {boolean}
+ */
+Observer.prototype.emit = function(eventName) {
+  var data = [], len = arguments.length - 1;
+  while ( len-- > 0 ) data[ len ] = arguments[ len + 1 ];
+
+  var handlers = this.events[eventName];
+
+  if (handlers) {
+    handlers.forEach(function (handler) { return handler.apply(null, data); });
+    return true;
+  }
+};
+
+/**
+ * @description lazy load style form a remote url then returns a promise
+ * @param {String} url remote-url
+ * @param {String} globalVar global variable key
+ * @return {Promise}
+ */
+function lazyloadStyle(url) {
+  var link = document.createElement('link');
+
+  link.type = 'text/css';
+  link.rel = 'stylesheet';
+  link.charset = 'utf-8';
+  link.href = url;
+  link.setAttribute('force', false);
+
+  return new Promise(function (resolve, reject) {
+    var timerId = setTimeout(function () { return clearState(true); }, 1.2e4);
+
+    function clearState(isError) {
+      clearTimeout(timerId);
+      link.onerror = link.onload = link.onreadystatechange = null; // 同时检查两种状态，只要有一种触发就删除事件处理器，避免触发两次
+
+      isError && link && link.remove();
+    }
+
+    link.onload = function() {
+      clearState();
+      resolve.apply(void 0, arguments);
+    };
+
+    link.onerror = function() {
+      clearState(true);
+      reject.apply(void 0, arguments);
+    };
+
+    document.head.appendChild(link);
+  })
+}
+
+/**
+ * @description lazy load script form a remote url then returns a promise
  * @param {String} url remote-url
  * @param {String} globalVar global variable key
  * @return {Promise}
  */
 function lazyLoadScript(url, globalVar) {
   var script = document.createElement('script');
-  var timeout = 120000;
 
   script.type = 'text/javascript';
   script.charset = 'utf-8';
@@ -101,36 +204,30 @@ function lazyLoadScript(url, globalVar) {
   script.async = true;
   script.setAttribute('nonce', 'nonce');
 
-  var _reject = null;
-  var _resolve = null;
-
-  function onLoadFailed() {
-    clearState();
-    _reject && _reject.apply(void 0, arguments);
-  }
-
-  function onLoadSuccess() {
-    _resolve && _resolve(globalVar ? window[globalVar] : undefined);
-    clearState();
-  }
-
-  function clearState() {
-    clearTimeout(timerId);
-    script.onerror = script.onload = script.onreadystatechange = null; // 同时检查两种状态，只要有一种触发就删除事件处理器，避免触发两次
-    script.remove();
-  }
-
-  document.body.appendChild(script);
-
-  /* 在 appendChild 之后开始计时 */
-  var timerId = setTimeout(
-    function () { return onLoadFailed(("Reject script " + url + " error")); },
-    timeout
-  );
-
   return new Promise(function (resolve, reject) {
-    _resolve = resolve;
-    _reject = reject;
+    var timerId = setTimeout(
+      function () { return onLoadFailed(("Reject script " + url + ": LOAD_SCRIPT_TIMEOUT")); },
+      1.2e4
+    );
+
+    function clearState() {
+      clearTimeout(timerId);
+      script.onerror = script.onload = script.onreadystatechange = null; // 同时检查两种状态，只要有一种触发就删除事件处理器，避免触发两次
+      script.remove();
+    }
+
+    function onLoadSuccess() {
+      var i = arguments.length, argsArray = Array(i);
+      while ( i-- ) argsArray[i] = arguments[i];
+
+      clearState();
+      resolve.apply(void 0, [ globalVar ? window[globalVar] : undefined ].concat( argsArray ));
+    }
+
+    function onLoadFailed() {
+      clearState();
+      reject.apply(void 0, arguments);
+    }
 
     if (script.readyState !== undefined) {
       // IE
@@ -142,341 +239,131 @@ function lazyLoadScript(url, globalVar) {
         ) {
           onLoadSuccess();
         } else {
-          onLoadFailed("Unknown error happened", evt);
+          onLoadFailed('Unknown error happened', evt);
         }
       };
     } else {
       // Others
-      script.onload = function load() {
-        onLoadSuccess();
-      };
-
+      script.onload = onLoadSuccess;
       script.onerror = function error(evt) {
         onLoadFailed(("GET " + url + " net::ERR_CONNECTION_REFUSED"), evt);
       };
     }
+
+    document.body.appendChild(script);
   })
 }
 
-var isDev = process.env.NODE_ENV === 'development';
-var isMaster = process.env.VUE_APP_MASTER !== undefined;
-var isPortal = !isMaster || process.env.VUE_APP_PORTAL !== undefined;
-
-function assert(condition, onSuccess, onFailure) {
-  if (condition) {
-    return isFunction(onSuccess) && onSuccess()
-  } else {
-    return isFunction(onFailure) && onFailure()
-  }
-}
-
-function info() {
-  var arguments$1 = arguments;
-
-  return assert(isDev, function () { return console.info.apply(console, arguments$1); })
-}
-
-function warn() {
-  var arguments$1 = arguments;
-  var this$1 = this;
-
-  var fn =
-    (!isDev &&
-      (typeof console !== 'undefined' &&
-        typeof console.warn === 'function' &&
-        console.warn)) ||
-    (function (err) {
-      throw new Error(err)
-    });
-
-  return assert(true, function () {
-    fn.apply(this$1, arguments$1);
-  })
-}
-
-function objectWithoutProperties (obj, exclude) { var target = {}; for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k) && exclude.indexOf(k) === -1) target[k] = obj[k]; return target; }
-
 /**
- * createMasterRouter
- * @description 如果是 MasterRouter 则直接覆盖 PageRouter
- * @param {Array|Object} routesOrConfig
- * @returns
+ * @class Lazyloader
+ * @description only focus on load resource from `config.getResource()`.
  */
-function createMasterRouter$$1(routesOrConfig) {
-  if (isArray(routesOrConfig)) {
-    return createPageRouter(routesOrConfig)
-  } else if (isObject(routesOrConfig)) {
-    var routes = routesOrConfig.routes;
-    var mode = routesOrConfig.mode;
-    var rest = objectWithoutProperties( routesOrConfig, ["routes", "mode"] );
-    var config = rest;
-
-    if (isArray(routes) && routes.length) {
-      return createPageRouter(routes, config, mode)
-    }
-  }
-
-  warn(
-    'Must pass a valid routes array for `createMaster(config: { routes: Array<Route>, [props]: any }): Object<Master>>`'
-  );
-}
-
-function objectWithoutProperties$1 (obj, exclude) { var target = {}; for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k) && exclude.indexOf(k) === -1) target[k] = obj[k]; return target; }
-
-/* install router plugin */
-Vue.use(VueRouter);
-
-/**
- * master-memo-cache
- * 在 master-router 中维护的 pathList、pathMap，VueRouter 中也维护了这两个变量，但是没有暴露。
- * 本地维护有两个目的:
- *  1. 是在当 portal-router 中调用 `addDomainRoutes` 时，比对、校验、去重
- *  2. 暴露给 portal-app 看其是否需要，如果上游做了很完善的逻辑判断，似乎没必要在暴露到下游
- */
-var pathList = [];
-var pathMap = {};
-
-// 内部维护的两个闭包变量 _router, _routes
-var _router = null; // router: VueRouter
-var _routes = []; // routes: Array<Route>
-
-/**
- * createRouter 根据 routes 创建 router，但会新增一些内部方法以增强router
- * @param {Array<Route>} routes
- * @returns {Object<Router<VueRouter>>}
- * @inspired from https://github.com/vuejs/vue-router/issues/1234#issuecomment-357941465
- */
-var createRouter = function (routes, mode) {
-  if ( routes === void 0 ) routes = [];
-  if ( mode === void 0 ) mode = 'history';
-
-  /* 刷新内部私有的闭包变量 _routes */
-  if (!_routes || !_routes.length) { _routes = routes; }
-
-  /* 刷新维护的路由状态 */
-  refreshPathStates(routes);
-
-  if (process.env.NODE_ENV === 'development') {
-    info('pathList: ', pathList);
-    info('pathMap: ', pathMap);
-  }
-
-  var router = new VueRouter({
-    routes: routes,
-    // Use the HTML5 history API (i.e. normal-looking routes)
-    // instead of routes with hashes (e.g. example.com/#/about).
-    // This may require some server configuration in production:
-    // https://router.vuejs.org/en/essentials/history-mode.html#example-server-configurations
-    mode: mode,
-    // Simulate native-like scroll behavior when navigating to a new
-    // route and using back/forward buttons.
-    scrollBehavior: function scrollBehavior(to, from, savedPosition) {
-      if (savedPosition) {
-        return savedPosition
-      } else {
-        return { x: 0, y: 0 }
-      }
-    },
-  });
-
-  /*
-   * 只能赋值1次，不可重复赋值。后续赋值更新了闭包中 _router 的引用，导致当前 router 的实例被更新。
-   * 因为 _router.matcher === router.matcher 导致 resetRouter 中的动态修改 _router.matcher 无法生效
-   */
-  if (!_router) {
-    _router = router;
-    var helpers = Object.create(null);
-
-    defineImmutableProp(helpers, 'completePaths', completePaths);
-    defineImmutableProp(helpers, 'findRoute', findRoute);
-    defineImmutableProp(helpers, 'findPathName', findPathName);
-    defineImmutableProp(helpers, 'nameExists', nameExists);
-    defineImmutableProp(helpers, 'pathExists', pathExists);
-
-    // 增加实例自身属性 addRoutes，不复写原型构造函数的成员方法
-    defineImmutableProp(_router, 'addRoutes', addDomainRoutes);
-    // 挂载工具方法 helpers 到 router 实例上 router.helpers.findPathName(path: String)
-    defineImmutableProp(_router, 'helpers', helpers);
-  }
-
-  return router
+var Lazyloader = function Lazyloader() {
+  this.cached = {};
 };
 
-/* 重置 master-router 的路由映射 Matcher */
-function resetRouter(routes) {
-  var newRouter = createRouter(routes);
-  _router.matcher = newRouter.matcher; // the relevant part
+Lazyloader.log = function log () {
+  return getLogger('VueMfe.' + Lazyloader.name)(arguments)
+};
 
-  return _router
-}
+Lazyloader.warn = function warn () {
+  return getWarning('VueMfe.' + Lazyloader.name)(arguments)
+};
 
-/**
- * addDomainRoutes 添加新的 portal 路由，可按需指定嵌套的 parentPath
- * @param {Array<Route>} newRoutes 需要被注册到 master-router 的新路由
- * @param {routePath: String = '/'} prependPath
- *  newRoutes 默认注册到 '/' 的 children 下
- *  prependPath 优先级： prependPath parameter < route.parentPath
- * @summary
- *  1. 除非调用 resetRouter 方法，否则所有现有路由的 path 和 name 都是不允许被覆盖的
- * @issue
- *  + route 的 path 不能带有 '/' 前缀
- *  `Note that nested paths that start with / will be treated as a root path. This allows you to leverage the component nesting without having to use a nested URL.`
- *  + route: { path: '/b', parentPath: '/error' } 在 master-router 存在 '/error' 的前提下，调用 router.match('/error/b') 无法 match
- */
-function addDomainRoutes(newRoutes, prependPath) {
-  if ( newRoutes === void 0 ) newRoutes = [];
-  if ( prependPath === void 0 ) prependPath = '/';
-
-  var hasParentPathRouteLength = 0;
-  var noParentPathRoutes = []; /* 没有声明 */
-  var unRegisteredRoutes = newRoutes
-    .filter(function (route) {
-      /* 过滤掉存在单个 parentPath 的路由 */
-      if (!route.parentPath) {
-        noParentPathRoutes.push(route);
-        return false
-      } else {
-        /* 更新 flag，并返回 boolean */
-        return Boolean(++hasParentPathRouteLength)
-      }
-    })
-    .filter(
-      function (route) { return !registerRoute(route); } /* filter 取非返回注册未成功的路由 */
-    );
-
-  if (prependPath && noParentPathRoutes.length) {
-    unRegisteredRoutes.concat(
-      noParentPathRoutes.filter(
-        function (route) { return !registerRoute(Object.assign(route, { parentPath: prependPath })); }
-      )
-    );
-  }
-
-  /* 当所有路由全部注册成功后，才重设 Matcher */
-  if (
-    /* 不存在 parentPathRoute && prependPath 或者 未注册成功的路由长度为0 */
-    (!hasParentPathRouteLength && !prependPath) ||
-    unRegisteredRoutes.length === 0
-  ) {
-    return resetRouter(_routes)
-  } else {
-    info('hasParentPathRouteLength: ', hasParentPathRouteLength);
-    info('prependPath: ', prependPath);
-    info('unRegisteredRoutes: ', unRegisteredRoutes);
-
-    warn(
-      ("Add routes failed, those routes " + (JSON.stringify(
-        unRegisteredRoutes
-      )) + " cannot be registered.")
-    );
-  }
-}
-
-/**
- * @method refreshPathStates
- * @description 递归刷新 pathList 和 pathMap
- * @param {Array<Route>} newRoutes
- * @param {String} parentPath
- */
-function refreshPathStates(newRoutes, parentPath) {
-  if ( newRoutes === void 0 ) newRoutes = [];
-  if ( parentPath === void 0 ) parentPath = '';
-
-  newRoutes.forEach(function (ref) {
-    var path = ref.path;
+Lazyloader.prototype.load = function load (ref) {
+    var this$1 = this;
     var name = ref.name;
-    var children = ref.children;
 
-    if (parentPath) { path = completePaths(path, parentPath); }
-    if (name && !pathMap[name]) { pathMap[name] = path; }
-    if (path && !pathList.includes(path)) { pathList.push(path); }
+  return this.getRouteEntry(name)
+    .then(function (url) {
+      var globalVarName = this$1.getName(name);
+      var resource = isFunction(url) ? url() : url;
+      Lazyloader.log('resource: ', resource);
 
-    if (children && children.length) {
-      refreshPathStates(children, path);
-    }
-  });
-}
+      return isDev && isObject(resource) && !isArray(resource)
+        ? resource /* if local import('url') */
+        : this$1.installResources(resource, globalVarName)
+    })
+};
+
+Lazyloader.prototype.getRouteEntry = function getRouteEntry (name) {
+    var this$1 = this;
+
+  var cache = this.cached[name];
+
+  if (cache) {
+    return Promise.resolve(cache)
+  } else {
+    return Promise.resolve(this.getResource(name))
+      .then(function (data) {
+          if ( data === void 0 ) data = {};
+
+        // merge cached with data
+        this$1.cached = Object.assign({}, this$1.cached, data);
+
+        if (data[name]) {
+          return data[name]
+        } else {
+          Lazyloader.log('resources object', JSON.stringify(data));
+          Lazyloader.warn(
+            ("The '" + name + "' cannot be found in 'config.getResource()'")
+          );
+        }
+      })
+  }
+};
 
 /**
- * registerRoute 递归注册新路由
- * @param {Object<Route>} route
- * @param {Array<Route>} beforeRoutes
- * @returns {Boolean} true: 注册成功，false: 注册失败
+ * installResources
+ * @description install JS/CSS resources
+ * @param {Array<URL> | URL} urls
+ * @param {string} name
  */
-function registerRoute(
-  ref,
-  beforeRoutes
-) {
-  var path = ref.path;
-  var name = ref.name;
-  var parentPath = ref.parentPath;
-  var rest = objectWithoutProperties$1( ref, ["path", "name", "parentPath"] );
-  var props = rest;
-  if ( beforeRoutes === void 0 ) beforeRoutes = _routes;
+Lazyloader.prototype.installResources = function installResources (urls, name) {
+  var allCss = urls.filter(function (url) { return url.endsWith('.css'); });
+  var scripts = urls.filter(function (url) { return url.endsWith('.js'); });
 
-  var completePath = parentPath ? completePaths(path, parentPath) : path;
-  var existsPath = parentPath ? pathExists(completePath) : pathExists(path);
-  var existNameWithPath = name && nameExists(name);
-
-  assert(existsPath, function () {
-    var pathName = findPathName(name);
-    var errorMsg = "\n      The path " + path + " cannot be registered " + (parentPath ? 'to parentPath ' + parentPath : '') + ",\n      because of it was already registered " + (pathName ? 'in pathMap ' + pathName : '') + "before.\n    ";
-
-    assert(
-      /* 业务开发过程中，可能需要在自己开环境使用 path === '/' */
-      path === '/',
-      function () { return isDev && console.warn(errorMsg); },
-      function () { return warn(errorMsg); }
-    );
-  });
-
-  assert(existNameWithPath, function () { return warn(("\n      The name " + name + " cannot be registered to path " + path + "\n      " + (parentPath ? ' with parentPath ' + parentPath : '') + "\n    },\n      because of it already registered in pathList " + existNameWithPath + " before.\n    ")); }
-  );
-
-  var route = Object.assign(
-    {
-      path:
-        (
-          parentPath !== '/' &&
-          path.startsWith('/')
-            ? path.replace(/^\/*/, '')
-            : path
-        ) /* fix: addDomainRoutes() @issue */,
-      name: name,
-    },
-    props || {}
-  );
-
-  /* 如果存在 parentPath 且 parentPath 已存在记录 */
-  if (parentPath && pathExists(parentPath)) {
-    /* 递归找到匹配 parentPath 的 matchedRoute */
-    var matchedRoute = findRoute(beforeRoutes, parentPath);
-
-    if (matchedRoute) {
-      if (matchedRoute.children && matchedRoute.children.length) {
-        /* 这里不用再判断当前的 matchedRoute.children中 是否已存在相同的 completePath，因为上面的 existsPath 已经处理过 */
-        matchedRoute.children.push(route);
-      } else {
-        matchedRoute.children = [route];
-      }
-
-      /* 注册成功 */
-      return true
-    } else {
-      warn(
-        ("Register path '" + path + "' failed, cannot found parent path '" + parentPath + "',\n        Are you sure the parent path exists in MasterRouter/routes before?")
-      );
-    }
-  } else {
-    if (parentPath !== undefined && typeof parentPath === 'string') {
-      beforeRoutes.push(route);
-    } else {
-      warn(
-        ("Register path '" + path + "' failed, parentPath '" + parentPath + " does not exist'")
-      );
-    }
+  if (isArray(allCss) && allCss.length) {
+    Promise.all(allCss.map(function (css) { return lazyloadStyle(css); })).catch(function (error) { return Lazyloader.warn(error); });
   }
-}
+
+  if (isArray(scripts) && scripts.length) {
+    return serialExecute(
+      scripts.map(function (script) { return lazyLoadScript(script, name); })
+    ).catch(function (error) {
+      throw error
+    })
+  }
+};
+
+Lazyloader.prototype.getResource = function getResource (name) {
+  return this.getConfig(name).getResource()
+};
+
+Lazyloader.prototype.getName = function getName (name) {
+  return this.getConfig(name).getNamespace(name)
+};
+
+Lazyloader.prototype.getConfig = function getConfig (name) {
+    if ( name === void 0 ) name = '*';
+
+  return this.configs[name] || this.configs['*']
+};
+
+Lazyloader.prototype.setConfig = function setConfig (name, config) {
+  if (isObject(name)) {
+    config = name;
+    name = '*';
+  }
+
+  if (!this.configs) {
+    this.configs = {};
+  }
+
+  this.configs[name] = config;
+
+  return this
+};
 
 /**
  * findRoute 深度优先递归遍历找到匹配 matchPath 的 Route
@@ -513,7 +400,13 @@ function findRoute(routes, matchPath) {
   }
 }
 
-function completePaths(path, parentPath) {
+/**
+ * @description auto complete path with parent path
+ * @param {String} path
+ * @param {String} parentPath
+ * @returns {String}
+ */
+function completePath(path, parentPath) {
   if (parentPath === '/' && path !== '/' && path.startsWith('/')) {
     return ensurePathSlash(path)
   } else {
@@ -532,228 +425,413 @@ function ensureSlash(path) {
   return path.charAt(0) === '/'
 }
 
-function pathExists(path) {
-  return pathList.includes(path)
-}
-
-function nameExists(name) {
-  return pathMap[name]
-}
-
-function findPathName(path) {
-  return Object.keys(pathMap).find(function (name) { return pathMap[name] === path; })
-}
-
-function getRouter() {
-  return _router
-}
-
-function getRoutes() {
-  return _routes
-}
-
-var cached = null;
-
-function lazyloader(to, next) {
-  var name = camelize(getAppPrefixName(to));
-  var config = getMasterConfig(name) || {};
-  var onLoadStart = config.onLoadStart;
-  var onLoadSuccess = config.onLoadSuccess;
-  var onLoadError = config.onLoadError;
-  var getNamespace = config.getNamespace; if ( getNamespace === void 0 ) getNamespace = function () { return ("__domain__app__" + name); };
-
-  isFunction(onLoadStart) && onLoadStart(name, config);
-  info('app-name: ', name);
-
-  return getRouteEntry(name, next)
-    .then(function (url) {
-      return isDev && isObject(url) && !isArray(url)
-        ? url
-        : installScript(url, getNamespace(name))
-    })
-    .then(function (module) {
-      if (module) {
-        return installModule(module)
-      } else {
-        throw new Error(
-          ("[vue-mfe/lazyloader]: Cannot get valid value of Module " + name)
-        )
-      }
-    })
-    .then(function (success) {
-      if (success) {
-        next(to);
-        isFunction(onLoadSuccess) && onLoadSuccess(name, config);
-      } else {
-        throw new Error("[vue-mfe/lazyloader]: Register dynamic routes failed")
-      }
-    })
-    .catch(function (error) {
-      isFunction(onLoadError) ? onLoadError(error, next) : next(false);
-    })
-}
+function objectWithoutProperties (obj, exclude) { var target = {}; for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k) && exclude.indexOf(k) === -1) target[k] = obj[k]; return target; }
 
 /**
- * getRouteEntry
- * @todo TODO: 如果是本地开发环境，则此处不需要发起请求，import 本地资源即可
- * @desc 获取 Portal 路由入口 entry-[chunkhash:8].umd.js 文件
- * @param {Object} data => cached
- * @param {String} names => portal app name
- * @returns {Object|undefined}
+ * @class EnhancedRouter
+ * @description Dynamically add child routes to an existing route
  */
-function getRouteEntry(name, next) {
-  /* 先取本地JS Heap中缓存，无缓存再取Server */
-  if (cached && cached[name]) {
-    return Promise.resolve(cached[name])
-  } else {
-    return getResource().then(function (data) {
-      if (data) {
-        // merge cached with data
-        cached = Object.assign({}, cached, data);
+var EnhancedRouter = function EnhancedRouter(router) {
+  if (router.addRoutes !== this.addRoutes) {
+    router.addRoutes = this.addRoutes;
+  }
 
-        if (cached[name]) {
-          return cached[name]
+  this.router = router;
+  this.routes = router.options.routes;
+  this.pathMap = {};
+  this.pathList = [];
+
+  this._init();
+};
+
+EnhancedRouter.warning = function warning () {
+  return getWarning(EnhancedRouter.name, arguments)
+};
+
+EnhancedRouter.prototype._init = function _init () {
+  this.refreshAndCheckState(this.routes);
+};
+
+/**
+ * @description Add new routes into current router, and supports dynamic nest
+ * @see
+ *+ [Dynamically add child routes to an existing route](https://github.com/vuejs/vue-router/issues/1156)
+ *+ [Feature request: replace routes dynamically](https://github.com/vuejs/vue-router/issues/1234#issuecomment-357941465)
+ * @param {Array<Route>} routes VueRoute route option
+ * @param {?String} parentPath
+ */
+EnhancedRouter.prototype.addRoutes = function addRoutes (routes, parentPath) {
+  this.refreshAndCheckState(routes, parentPath);
+  this.router.matcher = new VueRouter(
+    this.normalizeOptions(this.router.options, { routes: routes }, parentPath)
+  ).matcher;
+};
+
+/**
+ * @description normalize the options between oldRouter and newRouter with diff config options
+ * @param {Object} oldOpts oldRouter VueRouter configuration options
+ * @param {Object} newOpts newROuter VueRouter configuration options
+ * @param {?String} parentPath
+ * @returns {Object}
+ */
+EnhancedRouter.prototype.normalizeOptions = function normalizeOptions (oldOpts, newOpts, parentPath) {
+  var oldRoutes = oldOpts.routes;
+    var rest = objectWithoutProperties( oldOpts, ["routes"] );
+    var oldProps = rest;
+  var newRoutes = newOpts.routes;
+    var rest$1 = objectWithoutProperties( newOpts, ["routes"] );
+    var newProps = rest$1;
+
+  return Object.assign(
+    {
+      routes: this.mergeRoutes(oldRoutes, newRoutes, parentPath),
+    },
+    newProps,
+    oldProps
+  )
+};
+
+/**
+ * @description before merge new routes we need to check it out does its path or name duplicate in old routes
+ * @param {Array<Route>} oldRoutes
+ * @param {Array<Route>} newRoutes
+ * @param {?String} parentPath
+ */
+EnhancedRouter.prototype.mergeRoutes = function mergeRoutes (oldRoutes, newRoutes, parentPath) {
+  var needMatchPath = parentPath;
+
+  newRoutes.forEach(function (route) {
+    if (isString(route.parentPath)) {
+      parentPath = route.parentPath;
+      delete route.parentPath;
+    } else {
+      parentPath = needMatchPath;
+    }
+
+    if (isString(parentPath)) {
+      if (parentPath === '') {
+        oldRoutes.push(route);
+      } else {
+        var oldRoute = findRoute(oldRoutes, parentPath);
+        var path = route.path;
+
+        if (oldRoute) {
+          (oldRoute.children || (oldRoute.children = [])).push(
+            Object.assign({}, route, {
+              path: (
+                parentPath && path.startsWith('/')
+                  ? path = path.replace(/^\/*/, '')
+                  : path
+              ) /* fix: addPortalRoutes() @issue */,
+            }));
+        }
+      }
+    } else {
+      oldRoutes.push(route);
+    }
+  });
+
+  return oldRoutes
+};
+
+/**
+ * @description 递归刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
+ * @param {Array<Route>} newRoutes
+ * @param {String} parentPath
+ *1. 来自注册方法 addRoutes(routes, parentPath)
+ *2. 来自路由自身 { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
+ */
+EnhancedRouter.prototype.refreshAndCheckState = function refreshAndCheckState (routes, parentPath) {
+    var this$1 = this;
+
+  routes.forEach(function (ref) {
+      var path = ref.path;
+      var selfParentPath = ref.parentPath;
+      var name = ref.name;
+      var children = ref.children;
+
+    /* 优先匹配 route self parentPath */
+    if (selfParentPath) {
+      path = this$1.getParentPath(path, selfParentPath, name);
+    } else if (parentPath) {
+      path = this$1.getParentPath(path, parentPath, name);
+    }
+
+    if (name) {
+      if (!this$1.nameExists(name)) {
+        this$1.pathMap[name] = path;
+      } else {
+        EnhancedRouter.warning(("The name " + name + " in pathMap has been existed"));
+      }
+    }
+
+    if (path) {
+      if (!this$1.pathExists(path)) {
+        this$1.pathList.push(path);
+      } else {
+        EnhancedRouter.warning(("The name " + name + " in pathMap has been existed"));
+      }
+    }
+
+    if (children && children.length) {
+      return this$1.refreshAndCheckState(children, path)
+    }
+  });
+};
+
+EnhancedRouter.prototype.getParentPath = function getParentPath (path, parentPath, name) {
+  if (this.pathExists(parentPath)) {
+    return path = completePath(path, parentPath)
+  } else {
+    EnhancedRouter.warning(("Cannot found the parent path " + parentPath + " " + (name ? 'of ' + name : '') + " in Vue-MFE MasterRouter"));
+    return ''
+  }
+};
+
+EnhancedRouter.prototype.pathExists = function pathExists (path) {
+  return this.pathList.includes(path)
+};
+
+EnhancedRouter.prototype.nameExists = function nameExists (name) {
+  return this.pathMap[name]
+};
+
+EnhancedRouter.prototype.findRoute = function findRoute$1 (route) {
+  var path = (isString(route) && route) || (isObject(route) && route.path);
+  return path && findRoute(this.routes, path) || null
+};
+
+function objectWithoutProperties$1 (obj, exclude) { var target = {}; for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k) && exclude.indexOf(k) === -1) target[k] = obj[k]; return target; }
+
+
+/**
+ * @class VueMfe
+ * @description Vue micro front-end Centralized Controller
+ */
+var VueMfe = /*@__PURE__*/(function (Observer$$1) {
+  function VueMfe(opts) {
+    if ( opts === void 0 ) opts = {};
+
+    Observer$$1.call(this);
+
+    if (!opts || !opts.router || !(opts.router instanceof VueRouter)) {
+      VueMfe.warn('Must pass the router property in \'Vue.use(VueMfe, { router, config })\'');
+    }
+
+    var router = opts.router;
+    var rest = objectWithoutProperties$1( opts, ["router"] );
+    var config = rest;
+
+    this.router = router;
+    this.config = Object.assign({}, VueMfe.DEFAULTS, config);
+    this.installedApps = {};
+
+    this._init();
+  }
+
+  if ( Observer$$1 ) VueMfe.__proto__ = Observer$$1;
+  VueMfe.prototype = Object.create( Observer$$1 && Observer$$1.prototype );
+  VueMfe.prototype.constructor = VueMfe;
+
+  VueMfe.log = function log () {
+    return getLogger(VueMfe.name)(arguments)
+  };
+
+  VueMfe.warn = function warn () {
+    return getWarning(VueMfe.name)(arguments)
+  };
+
+  VueMfe.prototype._init = function _init () {
+    var this$1 = this;
+
+    this.routerHelpers = new EnhancedRouter(this.router);
+    this.lazyloader = new Lazyloader().setConfig(this.config);
+
+    this.router.beforeEach(function (to, from, next) {
+      if (to.matched.length === 0 || this$1.router.match(to.path).matched.length === 0) {
+        var appName = this$1._getPrefixName(to);
+        var args = { name: appName, to: to, from: from, next: next};
+
+        if (this$1.isInstalled(appName)) {
+          var error = new Error((appName + " has been installed but it does not have path " + (to.path)));
+          error.code = VueMfe.ERROR_CODE.LOAD_DUPLICATE_WITHOUT_PATH;
+
+          this$1.emit('error', error, args);
         } else {
-          info('[vue-mfe/getRouteEntry]: resources object: ', data);
-          warn(
-            ("[vue-mfe/getRouteEntry]: The '" + name + "' cannot be found in resources object: " + (JSON.stringify(
-              Object.keys(data)
-            )))
-          );
-
-          next(false);
+          this$1._installApp(args);
         }
-      } else {
-        return next({ name: 404 })
-      }
-    })
-  }
-}
-
-function getResource() {
-  var config = getMasterConfig();
-
-  try {
-    return config && config.getResource && config.getResource()
-  } catch (e) {
-    return Promise.reject(e)
-  }
-}
-
-/**
- * installScript
- * @desc 懒加载 JS 资源
- * @param {Array<String<URL>>|String<URL>} urls
- * @param {String} name
- */
-function installScript(urls, name) {
-  if (isArray(urls) && urls.length) {
-    return serialExecute(
-      urls.map(function (url) { return function () { return lazyLoadScript(url, name); }; })
-    ).catch(function (err) {
-      throw err
-    })
-  } else if (isString(urls)) {
-    return serialExecute([function () { return lazyLoadScript(urls, name); }])
-  }
-}
-
-function installModule(module) {
-  module = resolveModule(module);
-
-  var router = getRouter();
-  var app = router.app || {};
-  var routes = null;
-
-  // call init mini app (add routes mini app):
-  if (module) {
-    if (isFunction(module)) {
-      // const value = await module(app)
-      return Promise.resolve(module(app)).then(function (routes) {
-        if (isArray(routes) && routes.length) {
-          return router.addRoutes(routes)
-        } else if (routes === false) {
-          return warn(("[vue-mfe/installModule]: Module " + name + " initialize failed."))
-        }
-      })
-    }
-
-    // 如果直接是数组，则直接把这些数组理解成 routes
-    if (isArray(module)) {
-      routes = module;
-    } else if (isObject(module)) {
-      // 如果不想进入后续逻辑，可在 init 函数中抛出错误即可
-      // 因为 installModule 会 catch 这个错误然后抛出异常
-      isFunction(module.init) && module.init(app);
-
-      if (module.routes && module.routes.length) {
-        routes = module.routes;
-      } else {
-        return warn(
-          ("[vue-mfe/installModule]: Must pass a valid routes array in 'module.routes' property of " + name + "!")
-        )
-      }
-    }
-
-    router.addRoutes(routes);
-
-    // After apply mini app routes, i must to force next(to)
-    // instead of next(). next() do nothing... bug???
-    // next(to)
-    return true
-  } else {
-    // stop navigating to next route
-    // next(false)
-    return false
-  }
-}
-
-function createRouterInterceptor(router) {
-  router.beforeEach(function (to, from, next) {
-    /* 如果是本地开发环境或者是 MasterRuntime 都需要对未知路由进行懒加载处理 */
-    if (isDev || isMaster) {
-      if (router.match(to.path).matched.length === 0) {
-        lazyloader(to, next);
       } else {
         next();
       }
+    });
+  };
+
+  VueMfe.prototype._installApp = function _installApp (args) {
+    var this$1 = this;
+
+    var name = args.name;
+    var next = args.next;
+    var to = args.to;
+
+    this.installedApps[name] = VueMfe.LOAD_STATUS.START;
+    this.emit('start', args);
+
+    this.lazyloader.load(args)
+      .then(function (module) {
+        VueMfe.log(module);
+        return this$1._installModule(module)
+      })
+      .then(function (success) {
+        if (success) {
+          this$1.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS;
+
+          // After apply mini app routes, i must to force next(to)
+          // instead of next(). next() do nothing... bug???
+          next && to && next(to);
+          this$1.emit('end', args);
+        }
+      })
+      .catch(function (error) {
+        if (!error.code) { error.code = VueMfe.ERROR_CODE.LOAD_FAILED; }
+        this$1.installedApps[name] = VueMfe.LOAD_STATUS.FAILED;
+
+        next(false); // stop navigating to next route
+        this$1.emit('error', error, args);
+      });
+  };
+
+  /**
+   * installModule
+   * @description install ESM/UMD app module
+   * @param {Module} module
+   * @example
+   *  1. module is a init function
+   *    module: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
+   *  2. module is an array of routes
+   *    module: Array<Route>
+   *  3. module is an object with property 'init' and 'routes'
+   *    module: { init: Function, routes: Array<Route> }
+   */
+  VueMfe.prototype._installModule = function _installModule (module) {
+    var this$1 = this;
+
+    module = resolveModule(module);
+
+    var router = this.router;
+    var app = router.app || {};
+
+    // call init mini app (add routes mini app):
+    if (module) {
+      if (isFunction(module)) {
+        // routes: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
+        return Promise.resolve(module(app)).then(function (routesOrBool) {
+          return this$1._checkRoutes(routesOrBool)
+        })
+      } else if (isArray(module)) {
+        // module: Array<Route>
+        return this.addRoutes(module)
+      } else if (isObject(module)) {
+        // module: { init: Promise<T>.then((success: boolean) => boolean), routes: Array<Route> }
+        return isFunction(module.init) && Promise.resolve(module.init(app)).then(function (bool) {
+          return (bool === false || bool instanceof Error) ? this$1._checkRoutes(bool) : this$1.addRoutes(module.routes)
+        })
+      }
     } else {
-      next({ name: 404 });
+      return false
     }
-  });
-}
+  };
 
-/**
- * createPageRouter 中心化路由
- * @description 闭包缓存 _router, _routes & _config
- * @param {Array<Route>} routes
- * @returns {}
- */
-function createPageRouter(routes, config, mode) {
-  var hasRouter = hasMasterRouter();
-  var router = hasRouter ? addDomainRoutes(routes) : createRouter(routes, mode);
+  VueMfe.prototype._checkRoutes = function _checkRoutes (routesOrBool) {
+    if (routesOrBool) {
+      return this.addRoutes(routesOrBool)
+    } else {
+      if (routesOrBool instanceof Error) {
+        routesOrBool.code = VueMfe.ERROR_CODE.APP_INIT_FAILED;
+        throw routesOrBool
+      } else {
+        VueMfe.warn('Module ' + name + ' initialize failed.');
+      }
+    }
 
-  /* flag: 是否绑定增强特性 */
-  if (!hasRouter) {
-    router._config = config || {};
-    /* 创建全局引用，避免 portal 覆盖了 GlobalPageRouter */
-    defineImmutableProp(window, 'GlobalPageRouter', router);
-    /* 拦截未装载路由 */
-    createRouterInterceptor(router);
-  }
+    return false
+  };
 
-  return router
-}
-function hasMasterRouter() {
-  return window.GlobalPageRouter !== null && getRouter() !== null
-}
-function getMasterConfig() {
-  return (hasMasterRouter() && getRouter()._config) || {}
-}
+  VueMfe.prototype.addRoutes = function addRoutes (routes, parentPath) {
+    if (routes) {
+      if (routes.length) {
+        this.routerHelpers.addRoutes(routes, parentPath || this.config.parentPath);
 
-exports.createPageRouter = createPageRouter;
-exports.getMasterRouter = getRouter;
-exports.getMasterRoutes = getRoutes;
-exports.createMasterRouter = createMasterRouter$$1;
-exports.hasMasterRouter = hasMasterRouter;
-exports.getMasterConfig = getMasterConfig;
+        return true
+      } else {
+        VueMfe.warn('Routes has no any valid item');
+      }
+    } else {
+      VueMfe.warn('Must pass a valid \'routes: Array<Route>\' in `addRoutes` method');
+    }
+
+    return false
+  };
+
+  VueMfe.prototype.isInstalled = function isInstalled (route) {
+    var name = route;
+
+    if (isObject(route) && /\//.exec(route.path)) {
+      name = this._getPrefixName(route);
+    } else if (isString(route) && /\//.exec(route)) {
+      name = this._getPrefixNameByDelimiter(route, '/');
+    }
+
+    return this.installedApps[name] === VueMfe.LOAD_STATUS.SUCCESS
+  };
+
+  /**
+   * @description get the domain-app prefix name by current router and next route
+   * @param {VueRouter} router
+   * @param {VueRoute} next
+   * @param {?Boolean} ignoreCase
+   */
+  VueMfe.prototype._getPrefixName = function _getPrefixName (route) {
+    return route.name && route.name.includes('.')
+      ? this._getPrefixNameByDelimiter(route.name, '.')
+      : this._getPrefixNameByDelimiter(route.path, '/')
+  };
+
+  VueMfe.prototype._getPrefixNameByDelimiter = function _getPrefixNameByDelimiter (str, delimiter) {
+    var this$1 = this;
+
+    return (
+      (this.config.ignoreCase ? str.toLowerCase() : str)
+        .split(delimiter)
+        /* filter all params form router to get right name */
+        .filter(
+          function (s) { return !Object.values(this$1.router.currentRoute.params).includes(s); }
+        )
+        .filter(Boolean)
+        .map(function (s) { return s.trim(); })
+        .shift()
+    )
+  };
+
+  return VueMfe;
+}(Observer));
+
+VueMfe.version = '__VERSION__';
+
+VueMfe.DEFAULTS = {
+  ignoreCase: true,
+  parentPath: null,
+  getNamespace: function (name) { return ("__domain__app__" + name); },
+};
+
+VueMfe.LOAD_STATUS = {
+  SUCCESS: 1,
+  START: 0,
+  FAILED: -1,
+};
+VueMfe.ERROR_CODE = {
+  LOAD_FAILED: VueMfe.LOAD_STATUS.FAILED,
+  LOAD_DUPLICATE_WITHOUT_PATH: -2,
+  APP_INIT_FAILED: -3,
+};
+
+module.exports = VueMfe;

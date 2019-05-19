@@ -62,6 +62,7 @@ function genConfig(opts) {
         cjs(),
         opts.format !== 'cjs' &&
           replace({
+            '__VERSION__': version,
             'process.env.VUE_APP_MASTER': true,
             'process.env.VUE_APP_PORTAL': undefined,
           }),

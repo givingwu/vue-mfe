@@ -1,6 +1,6 @@
 {
   "name": "vue-mfe",
-  "version": "0.1.4",
+  "version": "0.0.1",
   "description": "A micro-frontend implementation based on Vue.js.",
   "sideEffects": false,
   "main": "dist/vue-mfe.common.js",
@@ -28,10 +28,7 @@
     "vue-micro-frontend",
     "vue micro frontend"
   ],
-  "author": [
-    "vuchan.c.wu@yzw.cn",
-    "givingwu@gmail.com"
-  ],
+  "author": "givingwu@gmail.com",
   "dependencies": {
     "vue": "^2.6.10",
     "vue-router": "^3.0.6"
