@@ -12,6 +12,8 @@
     "git-push": "git add . && git commit -m \"update: publish package\" && git push",
     "start": "serve ./",
     "test": "echo \"Error: no test specified\" && exit 1",
+    "example:pure": "serve ./example/pure",
+    "example:webpack": "cd ./example/webpack/simple && npm run start",
     "dev": "rollup -wm -c build/rollup.dev.config.js",
     "build": "node build/build.js",
     "lint": "eslint src test examples",
