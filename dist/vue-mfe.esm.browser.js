@@ -17,6 +17,8 @@ const isObject = (obj) => obj && typeof obj === 'object';
 
 const isString = (str) => typeof str === 'string';
 
+const toArray = (args) => Array.prototype.slice.call(args);
+
 const hasConsole =
   // eslint-disable-next-line
   typeof console !== 'undefined' && typeof console.warn === 'function';
@@ -33,7 +35,7 @@ const getLogger = (key) => (args) => {
   return assert(
     isDev,
     // eslint-disable-next-line
-    () => hasConsole && console.log.apply(console, key ? [key, ...args] : args),
+    () => hasConsole && console.log.apply(null, key ? [key, ...toArray(args)] : args),
     noop
   )
 };
@@ -47,7 +49,7 @@ const getWarning = (key) => (args) => {
   const fn = isDev ? throwError : hasConsole ? console.warn : noop;
 
   return assert(true, () => {
-    fn.apply(undefined, key ? [[key, ...args].join(' > ')] : args);
+    fn.apply(null, key ? [[key, ...toArray(args)].join(' > ')] : args);
   })
 };
 
@@ -63,7 +65,7 @@ const resolveModule = (module) => ((module && module.default) || module);
  * @param {Array<Promise<T>>} promises
  * @returns {Promise<T>} the finally result of promises
  */
-function serialExecute (promises) {
+const serialExecute = (promises) => {
   return promises.reduce((chain, next) => {
     return chain
       .then((retVal) => next(retVal))
@@ -71,7 +73,7 @@ function serialExecute (promises) {
         throw err
       })
   }, Promise.resolve())
-}
+};
 
 /**
  * @class Observer
@@ -259,13 +261,12 @@ class Lazyloader {
   load({ name }) {
     return this.getRouteEntry(name)
       .then((url) => {
-        const globalVarName = this.getName(name);
         const resource = isFunction(url) ? url() : url;
-        Lazyloader.log('resource: ', resource);
+        Lazyloader.log('getRouteEntry resource', resource);
 
         return isDev && isObject(resource) && !isArray(resource)
           ? resource /* if local import('url') */
-          : this.installResources(resource, globalVarName)
+          : this.installResources(isArray(resource) ? resource : [resource], this.getName(name))
       })
   }
 
@@ -308,10 +309,12 @@ class Lazyloader {
 
     if (isArray(scripts) && scripts.length) {
       return serialExecute(
-        scripts.map(script => lazyLoadScript(script, name))
-      ).catch(function (error) {
+        scripts.map((script) => () => lazyLoadScript(script, name))
+      ).catch((error) => {
         throw error
       })
+    } else {
+      Lazyloader.warn(`no any valid entry script be found in ${urls}`);
     }
   }
 
@@ -402,11 +405,11 @@ function ensureSlash(path) {
 
 /**
  * @class EnhancedRouter
- * @description Dynamically add child routes to an existing route
+ * @description Dynamically add child routes to an existing route & provides some `helpers` method
  */
 class EnhancedRouter {
-  static warning() {
-    return getWarning(EnhancedRouter.name, arguments)
+  static warn() {
+    return getWarning(EnhancedRouter.name)(arguments)
   }
 
   constructor(router) {
@@ -466,6 +469,7 @@ class EnhancedRouter {
    * @param {Array<Route>} oldRoutes
    * @param {Array<Route>} newRoutes
    * @param {?String} parentPath
+   * @returns {Array<Route>} oldRoutes
    */
   mergeRoutes(oldRoutes, newRoutes, parentPath) {
     const needMatchPath = parentPath;
@@ -492,7 +496,7 @@ class EnhancedRouter {
                   parentPath && path.startsWith('/')
                     ? path = path.replace(/^\/*/, '')
                     : path
-                ) /* fix: addPortalRoutes() @issue */,
+                ) /* fix: @issue that nested paths that start with `/` will be treated as a root path */,
               }));
           }
         }
@@ -508,8 +512,8 @@ class EnhancedRouter {
    * @description 递归刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
    * @param {Array<Route>} newRoutes
    * @param {String} parentPath
-   *  1. 来自注册方法 addRoutes(routes, parentPath)
-   *  2. 来自路由自身 { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
+   *  1. from method calls: addRoutes(routes, parentPath)
+   *  2. from route property: { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
    */
   refreshAndCheckState(routes, parentPath) {
     routes.forEach(({ path, parentPath: selfParentPath, name, children }) => {
@@ -520,19 +524,19 @@ class EnhancedRouter {
         path = this.getParentPath(path, parentPath, name);
       }
 
-      if (name) {
-        if (!this.nameExists(name)) {
-          this.pathMap[name] = path;
-        } else {
-          EnhancedRouter.warning(`The name ${name} in pathMap has been existed`);
-        }
-      }
-
       if (path) {
         if (!this.pathExists(path)) {
           this.pathList.push(path);
         } else {
-          EnhancedRouter.warning(`The name ${name} in pathMap has been existed`);
+          EnhancedRouter.warn(`The path ${path} in pathList has been existed`);
+        }
+      }
+
+      if (name) {
+        if (!this.nameExists(name)) {
+          this.pathMap[name] = path;
+        } else {
+          EnhancedRouter.warn(`The name ${name} in pathMap has been existed`);
         }
       }
 
@@ -546,7 +550,7 @@ class EnhancedRouter {
     if (this.pathExists(parentPath)) {
       return path = completePath(path, parentPath)
     } else {
-      EnhancedRouter.warning(`Cannot found the parent path ${parentPath} ${name ? 'of ' + name : ''} in Vue-MFE MasterRouter`);
+      EnhancedRouter.warn(`Cannot found the parent path ${parentPath} ${name ? 'of ' + name : ''} in Vue-MFE MasterRouter`);
       return ''
     }
   }
@@ -595,7 +599,7 @@ class VueMfe extends Observer {
   }
 
   _init() {
-    this.routerHelpers = new EnhancedRouter(this.router);
+    this.helpers = new EnhancedRouter(this.router);
     this.lazyloader = new Lazyloader().setConfig(this.config);
 
     this.router.beforeEach((to, from, next) => {
@@ -609,7 +613,7 @@ class VueMfe extends Observer {
 
           this.emit('error', error, args);
         } else {
-          this._installApp(args);
+          this.installApp(args);
         }
       } else {
         next();
@@ -617,18 +621,19 @@ class VueMfe extends Observer {
     });
   }
 
-  _installApp(args) {
+  installApp(args) {
     const { name, next, to } = args;
 
     this.installedApps[name] = VueMfe.LOAD_STATUS.START;
     this.emit('start', args);
 
-    this.lazyloader.load(args)
+    return this.lazyloader.load(args)
       .then((module) => {
-        VueMfe.log(module);
-        return this._installModule(module)
+        VueMfe.log('installApp module', module);
+        return this.installModule(module)
       })
       .then((success) => {
+        VueMfe.log('installApp success', success);
         if (success) {
           this.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS;
 
@@ -639,12 +644,13 @@ class VueMfe extends Observer {
         }
       })
       .catch(error => {
-        if (!error.code) error.code = VueMfe.ERROR_CODE.LOAD_FAILED;
+        if (!(error instanceof Error)) error = new Error(error);
+        if (!error.code) error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED;
         this.installedApps[name] = VueMfe.LOAD_STATUS.FAILED;
 
-        next(false); // stop navigating to next route
+        next && next(false); // stop navigating to next route
         this.emit('error', error, args);
-      });
+      })
   }
 
   /**
@@ -659,7 +665,7 @@ class VueMfe extends Observer {
    *  3. module is an object with property 'init' and 'routes'
    *    module: { init: Function, routes: Array<Route> }
    */
-  _installModule(module) {
+  installModule(module) {
     module = resolveModule(module);
 
     const router = this.router;
@@ -686,25 +692,10 @@ class VueMfe extends Observer {
     }
   }
 
-  _checkRoutes(routesOrBool) {
-    if (routesOrBool) {
-      return this.addRoutes(routesOrBool)
-    } else {
-      if (routesOrBool instanceof Error) {
-        routesOrBool.code = VueMfe.ERROR_CODE.APP_INIT_FAILED;
-        throw routesOrBool
-      } else {
-        VueMfe.warn('Module ' + name + ' initialize failed.');
-      }
-    }
-
-    return false
-  }
-
   addRoutes(routes, parentPath) {
     if (routes) {
       if (routes.length) {
-        this.routerHelpers.addRoutes(routes, parentPath || this.config.parentPath);
+        this.helpers.addRoutes(routes, parentPath || this.config.parentPath);
 
         return true
       } else {
@@ -727,6 +718,10 @@ class VueMfe extends Observer {
     }
 
     return this.installedApps[name] === VueMfe.LOAD_STATUS.SUCCESS
+  }
+
+  preinstall(name) {
+    return name && this.installApp({ name })
   }
 
   /**
@@ -754,23 +749,36 @@ class VueMfe extends Observer {
         .shift()
     )
   }
+
+  _checkRoutes(routesOrBool) {
+    if (routesOrBool) {
+      return this.addRoutes(routesOrBool)
+    } else {
+      if (routesOrBool instanceof Error) {
+        routesOrBool.code = VueMfe.ERROR_CODE.APP_INIT_FAILED;
+        throw routesOrBool
+      } else {
+        VueMfe.warn('Module ' + name + ' initialize failed.');
+      }
+    }
+
+    return false
+  }
 }
 
 VueMfe.version = '0.0.1';
-
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,
   getNamespace: (name) => `__domain__app__${name}`,
 };
-
 VueMfe.LOAD_STATUS = {
   SUCCESS: 1,
   START: 0,
   FAILED: -1,
 };
 VueMfe.ERROR_CODE = {
-  LOAD_FAILED: VueMfe.LOAD_STATUS.FAILED,
+  LOAD_ERROR_HAPPENED: VueMfe.LOAD_STATUS.FAILED,
   LOAD_DUPLICATE_WITHOUT_PATH: -2,
   APP_INIT_FAILED: -3,
 };

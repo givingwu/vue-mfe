@@ -11,7 +11,6 @@
 
 VueRouter = VueRouter && VueRouter.hasOwnProperty('default') ? VueRouter['default'] : VueRouter;
 
-var this$1 = undefined;
 var isDev = "development" === 'development';
 
 var noop = function () {};
@@ -23,6 +22,8 @@ var isFunction = function (fn) { return fn && typeof fn === 'function'; };
 var isObject = function (obj) { return obj && typeof obj === 'object'; };
 
 var isString = function (str) { return typeof str === 'string'; };
+
+var toArray = function (args) { return Array.prototype.slice.call(args); };
 
 var hasConsole =
   // eslint-disable-next-line
@@ -40,7 +41,7 @@ var getLogger = function (key) { return function (args) {
   return assert(
     isDev,
     // eslint-disable-next-line
-    function () { return hasConsole && console.log.apply(console, key ? [key ].concat( args) : args); },
+    function () { return hasConsole && console.log.apply(null, key ? [key ].concat( toArray(args)) : args); },
     noop
   )
 }; };
@@ -54,7 +55,7 @@ var getWarning = function (key) { return function (args) {
   var fn = isDev ? throwError : hasConsole ? console.warn : noop;
 
   return assert(true, function () {
-    fn.apply(this$1, key ? [[key ].concat( args).join(' > ')] : args);
+    fn.apply(null, key ? [[key ].concat( toArray(args)).join(' > ')] : args);
   })
 }; };
 
@@ -70,7 +71,7 @@ var resolveModule = function (module) { return ((module && module.default) || mo
  * @param {Array<Promise<T>>} promises
  * @returns {Promise<T>} the finally result of promises
  */
-function serialExecute (promises) {
+var serialExecute = function (promises) {
   return promises.reduce(function (chain, next) {
     return chain
       .then(function (retVal) { return next(retVal); })
@@ -78,7 +79,7 @@ function serialExecute (promises) {
         throw err
       })
   }, Promise.resolve())
-}
+};
 
 /**
  * @class Observer
@@ -274,13 +275,12 @@ Lazyloader.prototype.load = function load (ref) {
 
   return this.getRouteEntry(name)
     .then(function (url) {
-      var globalVarName = this$1.getName(name);
       var resource = isFunction(url) ? url() : url;
-      Lazyloader.log('resource: ', resource);
+      Lazyloader.log('getRouteEntry resource', resource);
 
       return isDev && isObject(resource) && !isArray(resource)
         ? resource /* if local import('url') */
-        : this$1.installResources(resource, globalVarName)
+        : this$1.installResources(isArray(resource) ? resource : [resource], this$1.getName(name))
     })
 };
 
@@ -327,10 +327,12 @@ Lazyloader.prototype.installResources = function installResources (urls, name) {
 
   if (isArray(scripts) && scripts.length) {
     return serialExecute(
-      scripts.map(function (script) { return lazyLoadScript(script, name); })
+      scripts.map(function (script) { return function () { return lazyLoadScript(script, name); }; })
     ).catch(function (error) {
       throw error
     })
+  } else {
+    Lazyloader.warn(("no any valid entry script be found in " + urls));
   }
 };
 
@@ -427,7 +429,7 @@ function objectWithoutProperties (obj, exclude) { var target = {}; for (var k in
 
 /**
  * @class EnhancedRouter
- * @description Dynamically add child routes to an existing route
+ * @description Dynamically add child routes to an existing route & provides some `helpers` method
  */
 var EnhancedRouter = function EnhancedRouter(router) {
   if (router.addRoutes !== this.addRoutes) {
@@ -442,8 +444,8 @@ var EnhancedRouter = function EnhancedRouter(router) {
   this._init();
 };
 
-EnhancedRouter.warning = function warning () {
-  return getWarning(EnhancedRouter.name, arguments)
+EnhancedRouter.warn = function warn () {
+  return getWarning(EnhancedRouter.name)(arguments)
 };
 
 EnhancedRouter.prototype._init = function _init () {
@@ -494,6 +496,7 @@ EnhancedRouter.prototype.normalizeOptions = function normalizeOptions (oldOpts, 
  * @param {Array<Route>} oldRoutes
  * @param {Array<Route>} newRoutes
  * @param {?String} parentPath
+ * @returns {Array<Route>} oldRoutes
  */
 EnhancedRouter.prototype.mergeRoutes = function mergeRoutes (oldRoutes, newRoutes, parentPath) {
   var needMatchPath = parentPath;
@@ -520,7 +523,7 @@ EnhancedRouter.prototype.mergeRoutes = function mergeRoutes (oldRoutes, newRoute
                 parentPath && path.startsWith('/')
                   ? path = path.replace(/^\/*/, '')
                   : path
-              ) /* fix: addPortalRoutes() @issue */,
+              ) /* fix: @issue that nested paths that start with `/` will be treated as a root path */,
             }));
         }
       }
@@ -536,8 +539,8 @@ EnhancedRouter.prototype.mergeRoutes = function mergeRoutes (oldRoutes, newRoute
  * @description 递归刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
  * @param {Array<Route>} newRoutes
  * @param {String} parentPath
- *1. 来自注册方法 addRoutes(routes, parentPath)
- *2. 来自路由自身 { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
+ *1. from method calls: addRoutes(routes, parentPath)
+ *2. from route property: { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
  */
 EnhancedRouter.prototype.refreshAndCheckState = function refreshAndCheckState (routes, parentPath) {
     var this$1 = this;
@@ -555,19 +558,19 @@ EnhancedRouter.prototype.refreshAndCheckState = function refreshAndCheckState (r
       path = this$1.getParentPath(path, parentPath, name);
     }
 
-    if (name) {
-      if (!this$1.nameExists(name)) {
-        this$1.pathMap[name] = path;
-      } else {
-        EnhancedRouter.warning(("The name " + name + " in pathMap has been existed"));
-      }
-    }
-
     if (path) {
       if (!this$1.pathExists(path)) {
         this$1.pathList.push(path);
       } else {
-        EnhancedRouter.warning(("The name " + name + " in pathMap has been existed"));
+        EnhancedRouter.warn(("The path " + path + " in pathList has been existed"));
+      }
+    }
+
+    if (name) {
+      if (!this$1.nameExists(name)) {
+        this$1.pathMap[name] = path;
+      } else {
+        EnhancedRouter.warn(("The name " + name + " in pathMap has been existed"));
       }
     }
 
@@ -581,7 +584,7 @@ EnhancedRouter.prototype.getParentPath = function getParentPath (path, parentPat
   if (this.pathExists(parentPath)) {
     return path = completePath(path, parentPath)
   } else {
-    EnhancedRouter.warning(("Cannot found the parent path " + parentPath + " " + (name ? 'of ' + name : '') + " in Vue-MFE MasterRouter"));
+    EnhancedRouter.warn(("Cannot found the parent path " + parentPath + " " + (name ? 'of ' + name : '') + " in Vue-MFE MasterRouter"));
     return ''
   }
 };
@@ -642,7 +645,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
   VueMfe.prototype._init = function _init () {
     var this$1 = this;
 
-    this.routerHelpers = new EnhancedRouter(this.router);
+    this.helpers = new EnhancedRouter(this.router);
     this.lazyloader = new Lazyloader().setConfig(this.config);
 
     this.router.beforeEach(function (to, from, next) {
@@ -656,7 +659,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
 
           this$1.emit('error', error, args);
         } else {
-          this$1._installApp(args);
+          this$1.installApp(args);
         }
       } else {
         next();
@@ -664,7 +667,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     });
   };
 
-  VueMfe.prototype._installApp = function _installApp (args) {
+  VueMfe.prototype.installApp = function installApp (args) {
     var this$1 = this;
 
     var name = args.name;
@@ -674,12 +677,13 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     this.installedApps[name] = VueMfe.LOAD_STATUS.START;
     this.emit('start', args);
 
-    this.lazyloader.load(args)
+    return this.lazyloader.load(args)
       .then(function (module) {
-        VueMfe.log(module);
-        return this$1._installModule(module)
+        VueMfe.log('installApp module', module);
+        return this$1.installModule(module)
       })
       .then(function (success) {
+        VueMfe.log('installApp success', success);
         if (success) {
           this$1.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS;
 
@@ -690,12 +694,13 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
         }
       })
       .catch(function (error) {
-        if (!error.code) { error.code = VueMfe.ERROR_CODE.LOAD_FAILED; }
+        if (!(error instanceof Error)) { error = new Error(error); }
+        if (!error.code) { error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED; }
         this$1.installedApps[name] = VueMfe.LOAD_STATUS.FAILED;
 
-        next(false); // stop navigating to next route
+        next && next(false); // stop navigating to next route
         this$1.emit('error', error, args);
-      });
+      })
   };
 
   /**
@@ -710,7 +715,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
    *  3. module is an object with property 'init' and 'routes'
    *    module: { init: Function, routes: Array<Route> }
    */
-  VueMfe.prototype._installModule = function _installModule (module) {
+  VueMfe.prototype.installModule = function installModule (module) {
     var this$1 = this;
 
     module = resolveModule(module);
@@ -739,25 +744,10 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     }
   };
 
-  VueMfe.prototype._checkRoutes = function _checkRoutes (routesOrBool) {
-    if (routesOrBool) {
-      return this.addRoutes(routesOrBool)
-    } else {
-      if (routesOrBool instanceof Error) {
-        routesOrBool.code = VueMfe.ERROR_CODE.APP_INIT_FAILED;
-        throw routesOrBool
-      } else {
-        VueMfe.warn('Module ' + name + ' initialize failed.');
-      }
-    }
-
-    return false
-  };
-
   VueMfe.prototype.addRoutes = function addRoutes (routes, parentPath) {
     if (routes) {
       if (routes.length) {
-        this.routerHelpers.addRoutes(routes, parentPath || this.config.parentPath);
+        this.helpers.addRoutes(routes, parentPath || this.config.parentPath);
 
         return true
       } else {
@@ -780,6 +770,10 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     }
 
     return this.installedApps[name] === VueMfe.LOAD_STATUS.SUCCESS
+  };
+
+  VueMfe.prototype.preinstall = function preinstall (name) {
+    return name && this.installApp({ name: name })
   };
 
   /**
@@ -810,24 +804,37 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     )
   };
 
+  VueMfe.prototype._checkRoutes = function _checkRoutes (routesOrBool) {
+    if (routesOrBool) {
+      return this.addRoutes(routesOrBool)
+    } else {
+      if (routesOrBool instanceof Error) {
+        routesOrBool.code = VueMfe.ERROR_CODE.APP_INIT_FAILED;
+        throw routesOrBool
+      } else {
+        VueMfe.warn('Module ' + name + ' initialize failed.');
+      }
+    }
+
+    return false
+  };
+
   return VueMfe;
 }(Observer));
 
 VueMfe.version = '0.0.1';
-
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,
   getNamespace: function (name) { return ("__domain__app__" + name); },
 };
-
 VueMfe.LOAD_STATUS = {
   SUCCESS: 1,
   START: 0,
   FAILED: -1,
 };
 VueMfe.ERROR_CODE = {
-  LOAD_FAILED: VueMfe.LOAD_STATUS.FAILED,
+  LOAD_ERROR_HAPPENED: VueMfe.LOAD_STATUS.FAILED,
   LOAD_DUPLICATE_WITHOUT_PATH: -2,
   APP_INIT_FAILED: -3,
 };
