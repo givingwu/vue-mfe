@@ -1,16 +1,25 @@
+import {
+  isString,
+  isObject,
+  isArray,
+  isFunction,
+  getWarning,
+  getLogger,
+  resolveModule
+} from './utils'
 import VueRouter from 'vue-router'
-import { isString, isObject, isArray, isFunction, getWarning, getLogger, resolveModule } from './utils'
 import Observer from './helpers/Observer'
 import Lazyloader from './helpers/Lazyloader'
 import EnhancedRouter from './helpers/EnhancedRouter'
 
+let _Vue
 
 /**
  * @class VueMfe
  * @description Vue micro front-end Centralized Controller
  */
-export default class VueMfe extends Observer {
-  static log () {
+export default class VueMfe extends Observer  {
+  static log() {
     return getLogger(VueMfe.name)(arguments)
   }
 
@@ -18,11 +27,65 @@ export default class VueMfe extends Observer {
     return getWarning(VueMfe.name)(arguments)
   }
 
+  /**
+   * @description To support a new Vue options `mfe` when Vue instantiation
+   * see https://github.com/vuejs/vuex/blob/dev/src/mixin.js
+   * @param {*} Vue
+   */
+  static install(Vue) {
+    if (VueMfe.install.installed && _Vue === Vue) return
+    VueMfe.install.installed = true
+
+    _Vue = Vue
+
+    const version = Number(Vue.version.split('.')[0])
+
+    if (version >= 2) {
+      Vue.mixin({ beforeCreate: initVueMfe })
+    } else {
+      // override init and inject vuex init procedure
+      // for 1.x backwards compatibility.
+      const _init = Vue.prototype._init
+      Vue.prototype._init = function(options = {}) {
+        options.init = options.init
+          ? [initVueMfe].concat(options.init)
+          : initVueMfe
+        _init.call(this, options)
+      }
+    }
+
+    function initVueMfe() {
+      const options = this.$options
+      // store injection
+      if (options.mfe) {
+        this.$mfe =
+          typeof options.mfe === 'function' ? options.mfe() : options.mfe
+      } else if (options.parent && options.parent.$mfe) {
+        this.$mfe = options.parent.$mfe
+      }
+    }
+  }
+
   constructor(opts = {}) {
     super()
 
+    // Auto install if it is not done yet and `window` has `Vue`.
+    // To allow users to avoid auto-installation in some cases,
+    // this code should be placed here.
+    if (
+      /* eslint-disable-next-line no-undef */
+      !Vue &&
+      typeof window !== 'undefined' &&
+      window.Vue &&
+      !VueMfe.install.installed
+    ) {
+      VueMfe.install(window.Vue)
+    }
+
     if (!opts || !opts.router || !(opts.router instanceof VueRouter)) {
-      VueMfe.warn('Must pass the router property in \'Vue.use(VueMfe, { router, config })\'')
+      VueMfe.warn(
+        'Must pass the router property in "Vue.use(VueMfe, { router, config })"'
+      )
     }
 
     const { router, ...config } = opts
@@ -39,12 +102,17 @@ export default class VueMfe extends Observer {
     this.lazyloader = new Lazyloader().setConfig(this.config)
 
     this.router.beforeEach((to, from, next) => {
-      if (to.matched.length === 0 || this.router.match(to.path).matched.length === 0) {
+      if (
+        to.matched.length === 0 ||
+        this.router.match(to.path).matched.length === 0
+      ) {
         const appName = this._getPrefixName(to)
-        const args = { name: appName, to, from, next}
+        const args = { name: appName, to, from, next }
 
         if (this.isInstalled(appName)) {
-          const error = new Error(`${appName} has been installed but it does not have path ${to.path}`)
+          const error = new Error(
+            `${appName} has been installed but it does not have path ${to.path}`
+          )
           error.code = VueMfe.ERROR_CODE.LOAD_DUPLICATE_WITHOUT_PATH
 
           this.emit('error', error, args)
@@ -63,13 +131,15 @@ export default class VueMfe extends Observer {
     this.installedApps[name] = VueMfe.LOAD_STATUS.START
     this.emit('start', args)
 
-    return this.lazyloader.load(args)
+    return this.lazyloader
+      .load(args)
       .then((module) => {
         VueMfe.log('installApp module', module)
         return this.installModule(module)
       })
       .then((success) => {
         VueMfe.log('installApp success', success)
+
         if (success) {
           this.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS
 
@@ -79,7 +149,7 @@ export default class VueMfe extends Observer {
           this.emit('end', args)
         }
       })
-      .catch(error => {
+      .catch((error) => {
         if (!(error instanceof Error)) error = new Error(error)
         if (!error.code) error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED
         this.installedApps[name] = VueMfe.LOAD_STATUS.FAILED
@@ -111,7 +181,7 @@ export default class VueMfe extends Observer {
     if (module) {
       if (isFunction(module)) {
         // routes: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
-        return Promise.resolve(module(app)).then(routesOrBool => {
+        return Promise.resolve(module(app)).then((routesOrBool) => {
           return this._checkRoutes(routesOrBool)
         })
       } else if (isArray(module)) {
@@ -119,9 +189,14 @@ export default class VueMfe extends Observer {
         return this.addRoutes(module)
       } else if (isObject(module)) {
         // module: { init: Promise<T>.then((success: boolean) => boolean), routes: Array<Route> }
-        return isFunction(module.init) && Promise.resolve(module.init(app)).then(bool => {
-          return (bool === false || bool instanceof Error) ? this._checkRoutes(bool) : this.addRoutes(module.routes)
-        })
+        return (
+          isFunction(module.init) &&
+          Promise.resolve(module.init(app)).then((bool) => {
+            return bool === false || bool instanceof Error
+              ? this._checkRoutes(bool)
+              : this.addRoutes(module.routes)
+          })
+        )
       }
     } else {
       return false
@@ -138,7 +213,9 @@ export default class VueMfe extends Observer {
         VueMfe.warn('Routes has no any valid item')
       }
     } else {
-      VueMfe.warn('Must pass a valid \'routes: Array<Route>\' in `addRoutes` method')
+      VueMfe.warn(
+        'Must pass a valid "routes: Array<Route>" in "addRoutes" method'
+      )
     }
 
     return false
@@ -166,7 +243,7 @@ export default class VueMfe extends Observer {
    * @param {VueRoute} next
    * @param {?Boolean} ignoreCase
    */
-  _getPrefixName (route) {
+  _getPrefixName(route) {
     return route.name && route.name.includes('.')
       ? this._getPrefixNameByDelimiter(route.name, '.')
       : this._getPrefixNameByDelimiter(route.path, '/')
@@ -206,15 +283,16 @@ VueMfe.version = '__VERSION__'
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,
-  getNamespace: (name) => `__domain__app__${name}`,
+  getNamespace: (name) => `__domain__app__${name}`
 }
 VueMfe.LOAD_STATUS = {
   SUCCESS: 1,
   START: 0,
-  FAILED: -1,
+  FAILED: -1
 }
 VueMfe.ERROR_CODE = {
   LOAD_ERROR_HAPPENED: VueMfe.LOAD_STATUS.FAILED,
   LOAD_DUPLICATE_WITHOUT_PATH: -2,
-  APP_INIT_FAILED: -3,
+  APP_INIT_FAILED: -3
 }
+
