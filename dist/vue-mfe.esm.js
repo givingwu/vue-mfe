@@ -598,6 +598,7 @@ EnhancedRouter.prototype.findRoute = function findRoute$1 (route) {
 
 function objectWithoutProperties$1 (obj, exclude) { var target = {}; for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k) && exclude.indexOf(k) === -1) target[k] = obj[k]; return target; }
 
+var _Vue;
 
 /**
  * @class VueMfe
@@ -609,8 +610,23 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
 
     Observer$$1.call(this);
 
+    // Auto install if it is not done yet and `window` has `Vue`.
+    // To allow users to avoid auto-installation in some cases,
+    // this code should be placed here.
+    if (
+      /* eslint-disable-next-line no-undef */
+      !Vue &&
+      typeof window !== 'undefined' &&
+      window.Vue &&
+      !VueMfe.install.installed
+    ) {
+      VueMfe.install(window.Vue);
+    }
+
     if (!opts || !opts.router || !(opts.router instanceof VueRouter)) {
-      VueMfe.warn('Must pass the router property in \'Vue.use(VueMfe, { router, config })\'');
+      VueMfe.warn(
+        'Must pass the router property in "Vue.use(VueMfe, { router, config })"'
+      );
     }
 
     var router = opts.router;
@@ -636,6 +652,47 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     return getWarning(VueMfe.name)(arguments)
   };
 
+  /**
+   * @description To support a new Vue options `mfe` when Vue instantiation
+   * see https://github.com/vuejs/vuex/blob/dev/src/mixin.js
+   * @param {*} Vue
+   */
+  VueMfe.install = function install (Vue) {
+    if (VueMfe.install.installed && _Vue === Vue) { return }
+    VueMfe.install.installed = true;
+
+    _Vue = Vue;
+
+    var version = Number(Vue.version.split('.')[0]);
+
+    if (version >= 2) {
+      Vue.mixin({ beforeCreate: initVueMfe });
+    } else {
+      // override init and inject vuex init procedure
+      // for 1.x backwards compatibility.
+      var _init = Vue.prototype._init;
+      Vue.prototype._init = function(options) {
+        if ( options === void 0 ) options = {};
+
+        options.init = options.init
+          ? [initVueMfe].concat(options.init)
+          : initVueMfe;
+        _init.call(this, options);
+      };
+    }
+
+    function initVueMfe() {
+      var options = this.$options;
+      // store injection
+      if (options.mfe) {
+        this.$mfe =
+          typeof options.mfe === 'function' ? options.mfe() : options.mfe;
+      } else if (options.parent && options.parent.$mfe) {
+        this.$mfe = options.parent.$mfe;
+      }
+    }
+  };
+
   VueMfe.prototype._init = function _init () {
     var this$1 = this;
 
@@ -643,12 +700,17 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     this.lazyloader = new Lazyloader().setConfig(this.config);
 
     this.router.beforeEach(function (to, from, next) {
-      if (to.matched.length === 0 || this$1.router.match(to.path).matched.length === 0) {
+      if (
+        to.matched.length === 0 ||
+        this$1.router.match(to.path).matched.length === 0
+      ) {
         var appName = this$1._getPrefixName(to);
-        var args = { name: appName, to: to, from: from, next: next};
+        var args = { name: appName, to: to, from: from, next: next };
 
         if (this$1.isInstalled(appName)) {
-          var error = new Error((appName + " has been installed but it does not have path " + (to.path)));
+          var error = new Error(
+            (appName + " has been installed but it does not have path " + (to.path))
+          );
           error.code = VueMfe.ERROR_CODE.LOAD_DUPLICATE_WITHOUT_PATH;
 
           this$1.emit('error', error, args);
@@ -671,13 +733,15 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     this.installedApps[name] = VueMfe.LOAD_STATUS.START;
     this.emit('start', args);
 
-    return this.lazyloader.load(args)
+    return this.lazyloader
+      .load(args)
       .then(function (module) {
         VueMfe.log('installApp module', module);
         return this$1.installModule(module)
       })
       .then(function (success) {
         VueMfe.log('installApp success', success);
+
         if (success) {
           this$1.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS;
 
@@ -729,9 +793,14 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
         return this.addRoutes(module)
       } else if (isObject(module)) {
         // module: { init: Promise<T>.then((success: boolean) => boolean), routes: Array<Route> }
-        return isFunction(module.init) && Promise.resolve(module.init(app)).then(function (bool) {
-          return (bool === false || bool instanceof Error) ? this$1._checkRoutes(bool) : this$1.addRoutes(module.routes)
-        })
+        return (
+          isFunction(module.init) &&
+          Promise.resolve(module.init(app)).then(function (bool) {
+            return bool === false || bool instanceof Error
+              ? this$1._checkRoutes(bool)
+              : this$1.addRoutes(module.routes)
+          })
+        )
       }
     } else {
       return false
@@ -748,7 +817,9 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
         VueMfe.warn('Routes has no any valid item');
       }
     } else {
-      VueMfe.warn('Must pass a valid \'routes: Array<Route>\' in `addRoutes` method');
+      VueMfe.warn(
+        'Must pass a valid "routes: Array<Route>" in "addRoutes" method'
+      );
     }
 
     return false
@@ -820,17 +891,17 @@ VueMfe.version = '0.0.1';
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,
-  getNamespace: function (name) { return ("__domain__app__" + name); },
+  getNamespace: function (name) { return ("__domain__app__" + name); }
 };
 VueMfe.LOAD_STATUS = {
   SUCCESS: 1,
   START: 0,
-  FAILED: -1,
+  FAILED: -1
 };
 VueMfe.ERROR_CODE = {
   LOAD_ERROR_HAPPENED: VueMfe.LOAD_STATUS.FAILED,
   LOAD_DUPLICATE_WITHOUT_PATH: -2,
-  APP_INIT_FAILED: -3,
+  APP_INIT_FAILED: -3
 };
 
 export default VueMfe;
