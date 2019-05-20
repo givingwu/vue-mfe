@@ -18,16 +18,21 @@ ___________
 
 ## API
 
-Master-runtime:
+`mfe.js` use VueMfe as a Vue plugin and initialization it with config options:
 ```js
-// eslint-disable-next-line
-const mfe = new VueMfe({
-  router: new VueRouter({ routes: [] }),
+import Vue from 'vue'
+import VueMfe from 'vue-mfe';
+import router from './router';
+
+Vue.use(VueMfe)
+
+export default new VueMfe({
+  router,
   ignoreCase: true, // ignore path case to make path '/AuTh/uSEr' has same result with path '/auth/user'
   parentPath: '/', // By default, dynamic routes are registered to children of this route.
-  getNamespace: (name) => `__domain__app__${name}`, // global namespace rule
+  getNamespace: (name) => `__domain__app__${name}`, // a function to returns the global namespace by specific rule
   getResource: () => {
-    if (process.env.NODE_ENV) {
+    if (process.env.NODE_ENV === 'development') {
       return {
         bar: () => import('../../../domain-app/bar/esm'),
         foo: () => import('../../../domain-app/foo/esm'),
@@ -40,11 +45,14 @@ const mfe = new VueMfe({
     }
   }
 });
+```
 
-// pre install an app
+`preinstall.js` preinstall a micro-app with name:
+```js
+import mfe from './mfe'
+
 if (!mfe.isInstalled('foo')) {
   mfe.preinstall('foo').then(() => {
-    // eslint-disable-next-line
     console.log('isInstalled:', mfe.isInstalled('foo')); // true
 
     // does path exist or not
@@ -65,29 +73,43 @@ if (!mfe.isInstalled('foo')) {
     }
   })
 }
+```
 
-// eslint-disable-next-line
-console.log('VueMfe: ', mfe);
+`main.js` initialize an app with VueMfe instance:
+```js
+import Vue from 'vue'
+import VueMfe from 'vue-mfe'
+import router from './router'
+import mfe from './mfe'
+import './preinstall'
 
-// load micro-app start
-mfe.on('start', ({ name }) => {
-  // eslint-disable-next-line no-console
-  console.log(`Load ${name} start`);
-});
+new Vue({
+  mfe,
+  router,
+  created() {
+    // event: when load micro-app start
+    this.$mfe.on('start', ({ name }) => {
+      console.log(`Load ${name} start`);
+    });
 
-// load micro-app success
-mfe.on('end', ({ name }) => {
-  // eslint-disable-next-line no-console
-  console.log(`Load ${name} success`);
-});
+    // event: when load micro-app success
+    this.$mfe.on('end', ({ name }) => {
+      console.log(`Load ${name} success`);
+    });
 
-// load micro-app error
-mfe.on('error', (error, { name }) => {
-  // eslint-disable-next-line no-console
-  console.log(error.code, VueMfe);
-  // eslint-disable-next-line no-console
-  console.error(error, name);
-});
+    // event: when load micro-app failed with diff error code
+    this.$mfe.on('error', (error, { name }) => {
+      console.log(name, error.code, VueMfe.ERROR_CODE);
+      console.error(error);
+    });
+  },
+  template: `
+    <div id="app">
+      <h1>Vue-MFE</h1>
+      <router-view></router-view>
+    </div>
+  `
+}).$mount('#app')
 ```
 
 
@@ -112,6 +134,7 @@ npm run example:pure
 + [ ] write unit test cases
 + [ ] write demo with multiple webpack
 + [ ] update docs by vuepress
++ [ ] publish package to npm registry
 
 
 ## Troubleshooting
