@@ -1,8 +1,11 @@
+import Vue from 'vue'
 import VueMfe from 'vue-mfe';
 import router from './router';
 
+Vue.use(VueMfe)
+
 // eslint-disable-next-line
-const mfe = new VueMfe({
+export default new VueMfe({
   router,
   ignoreCase: true,
   parentPath: '/',
@@ -12,28 +15,3 @@ const mfe = new VueMfe({
     foo: () => import('../../../pure/domain-app/foo/esm')
   })
 });
-
-// eslint-disable-next-line
-console.log('VueMfe: ', mfe);
-
-// load start
-mfe.on('start', ({ name }) => {
-  // eslint-disable-next-line no-console
-  console.log(`Load ${name} start`);
-});
-
-// load success
-mfe.on('end', ({ name }) => {
-  // eslint-disable-next-line no-console
-  console.log(`Load ${name} success`);
-});
-
-// load error
-mfe.on('error', (error, { name }) => {
-  // eslint-disable-next-line no-console
-  console.log(error.code, VueMfe.ERROR_CODE);
-  // eslint-disable-next-line no-console
-  console.error(error, name);
-});
-
-export default mfe

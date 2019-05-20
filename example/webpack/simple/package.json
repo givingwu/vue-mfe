@@ -9,8 +9,10 @@
     "start": "nodemon --watch webpack.config.js --exec \"webpack-dev-server --mode development --config webpack.config.js --progress\""
   },
   "devDependencies": {
+    "@babel/plugin-proposal-object-rest-spread": "^7.4.4",
     "@babel/plugin-syntax-dynamic-import": "^7.2.0",
     "babel": "^6.23.0",
+    "babel-eslint": "^10.0.1",
     "babel-loader": "^8.0.6",
     "eslint": "^5.16.0",
     "eslint-loader": "^2.1.2",

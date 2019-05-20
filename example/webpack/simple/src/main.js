@@ -1,33 +1,36 @@
 import Vue from 'vue'
-import MasterRouter from './router'
+import VueMfe from 'vue-mfe'
+import router from './router'
 import mfe from './mfe'
-
-if (!mfe.isInstalled('foo')) {
-  mfe.preinstall('foo').then(() => {
-    // eslint-disable-next-line
-    console.log('isInstalled:', mfe.isInstalled('foo')); // true
-
-    // does path exist or not
-    if (mfe.helpers.pathExists('/foo')) {
-      // eslint-disable-next-line
-      console.log('/foo route:', mfe.helpers.findRoute('/foo')) /* findRoute(path: string) */
-
-      if (!mfe.helpers.pathExists('/foo/dynamic')) {
-        /* add route dynamic with parentPath and exists route */
-        mfe.addRoutes([{
-          path: '/dynamic',
-          parentPath: '/foo',
-          component: {
-            template: '<h2>i am /foo/dynamic page</h2>'
-          }
-        }])
-      }
-    }
-  })
-}
+import './preinstall'
 
 new Vue({
-  router: MasterRouter,
+  mfe,
+  router,
+  created() {
+    // eslint-disable-next-line
+    console.log(this.$mfe);
+
+    // load start
+    mfe.on('start', ({ name }) => {
+      // eslint-disable-next-line no-console
+      console.log(`Load ${name} start`);
+    });
+
+    // load success
+    mfe.on('end', ({ name }) => {
+      // eslint-disable-next-line no-console
+      console.log(`Load ${name} success`);
+    });
+
+    // load error
+    mfe.on('error', (error, { name }) => {
+      // eslint-disable-next-line no-console
+      console.log(error.code, VueMfe.ERROR_CODE);
+      // eslint-disable-next-line no-console
+      console.error(error, name);
+    });
+  },
   methods: {
     addDynamicRoute() {
       mfe.addRoutes([{

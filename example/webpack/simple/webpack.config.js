@@ -38,7 +38,7 @@ module.exports = {
   resolve: {
     alias: {
       vue: 'vue/dist/vue.esm.js',
-      'vue-mfe': path.join(__dirname, '../../../src')
+      'vue-mfe': path.join(__dirname, '../../../dist/vue-mfe.js')
     }
   },
 
@@ -46,7 +46,7 @@ module.exports = {
     rules: [
       {
         test: /\.js$/,
-        exclude: /node_modules/,
+        exclude: [/node_modules/, /dist/],
         use: ['babel-loader', 'eslint-loader']
       }
     ]
