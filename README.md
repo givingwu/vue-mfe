@@ -1,4 +1,4 @@
-<p align="center"><a href="https://vuchan.github.io/vue-mfe" target="_blank" rel="noopener noreferrer"><img width="100" src="./docs/.vuepress/public/images/mfe-logo.png" alt="VueMfe logo"></a></p>
+<p align="center"><a href="https://vuchan.github.io/vue-mfe" target="_blank" rel="noopener noreferrer"><img width="200" src="./docs/.vuepress/public/images/mfe-logo.png" alt="VueMfe logo"></a></p>
 
 <p align="center">
   <a href="https://npmcharts.com/compare/vue-mfe?minimal=true"><img src="https://img.shields.io/npm/dm/vue-mfe.svg" alt="Downloads"></a>
