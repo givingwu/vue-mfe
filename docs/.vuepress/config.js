@@ -1,6 +1,6 @@
 module.exports = {
   title: 'Vue-MFE',
-  description: '快速创建基于 vue.js 的微前端 SPA',
+  description: '快速创建基于 Vue.js 的微前端应用',
   serviceWorker: true,
 
   themeConfig: {

@@ -9,15 +9,17 @@ meta:
 ---
 
 # MFE
-MFE 是英文 micro front-end 的缩写，即**微前端**，对于**微前端**以下文章中有全面的分析：
+MFE 是 micro front-end 的缩写，即**微前端**，对于**微前端**以下文章中有全面的分析：
 
++ [Micro-FrontEnds](https://micro-frontends.org/)
 + [微前端的那些事儿](https://giethub.com/phodal/microfrontends)
-+ [美团-用微前端的方式搭建类单页应用](https://tech.meituan.com/2018/09/06/fe-tiny-spa.html)
 + [中台微服务了，那前端呢？](https://mp.weixin.qq.com/s/hke92257-EB1ksrV6tb-mg)
++ [用微前端的方式搭建类单页应用](https://tech.meituan.com/2018/09/06/fe-tiny-spa.html)
+
 
 ## 社区实现
 
-社区的实现(communities implementations)，Framework Support & Projects Table:
+社区的实现(Community implementations)，Framework Support & Projects Table:
 
 | all                                     | vue                                          | react                                                                                 | angular                                |
 | --------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------- |
@@ -29,10 +31,20 @@ MFE 是英文 micro front-end 的缩写，即**微前端**，对于**微前端**
 ## What?
 `vue-mfe` 是一个用于快速创建基于 vue.js 微前端 SPA 的 JavaScript 库。
 
-## Why?
 
+## Why?
 围绕 [Vue.js](https://vuejs.org/) 技术栈定制实现，无任何重复依赖。
 
+
+### V1.0.0+
+
++ 基于事件驱动设计
++ 支持预安装和懒加载微应用
++ 增强 [vue-router](http://router.vuejs.org) 功能
++ 支持动态添加路由及嵌套路由
+
+
+### v0.1.1+
 + 非常简单的 API
 + 无任何侵入式代码
 + 增强 [vue-router](http://router.vuejs.org) 功能
@@ -43,6 +55,10 @@ MFE 是英文 micro front-end 的缩写，即**微前端**，对于**微前端**
 
 
 ## How?
+
+### v1.0.0+
+
+### v0.1.1+
 ![vue-mfe-architecture](/images/vue-mfe-architecture.jpg)
 
 1. 通过 vue-mfe 对外暴露的`createMasterRouter(config)`方法在[主运行时](getting-started.md#master-runtime)(master-runtime)中声明主路由
