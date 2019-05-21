@@ -26,6 +26,10 @@ ___________
 + support dynamically add child routes to an existing route & nested route.
 
 
+## How?
+<img width="100%" src="./docs/.vuepress/public/images/vue-mfe-architecture-v1.jpg" alt="VueMfe logo">
+
+
 ## API
 
 `mfe.js` use VueMfe as a Vue plugin and initialization it with config options:
