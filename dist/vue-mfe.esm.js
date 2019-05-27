@@ -427,7 +427,7 @@ function objectWithoutProperties (obj, exclude) { var target = {}; for (var k in
  */
 var EnhancedRouter = function EnhancedRouter(router) {
   if (router.addRoutes !== this.addRoutes) {
-    router.addRoutes = this.addRoutes;
+    router.addRoutes = this.addRoutes.bind(this);
   }
 
   this.router = router;
@@ -455,6 +455,11 @@ EnhancedRouter.prototype._init = function _init () {
  * @param {?String} parentPath
  */
 EnhancedRouter.prototype.addRoutes = function addRoutes (routes, parentPath) {
+  if (isDev) {
+    console.log(this.pathList);
+    console.log(this.pathMap);
+  }
+
   this.refreshAndCheckState(routes, parentPath);
   this.router.matcher = new VueRouter(
     this.normalizeOptions(this.router.options, { routes: routes }, parentPath)
@@ -478,7 +483,7 @@ EnhancedRouter.prototype.normalizeOptions = function normalizeOptions (oldOpts, 
 
   return Object.assign(
     {
-      routes: this.mergeRoutes(oldRoutes, newRoutes, parentPath),
+      routes: this.mergeRoutes(oldRoutes, newRoutes, parentPath)
     },
     newProps,
     oldProps
@@ -511,14 +516,14 @@ EnhancedRouter.prototype.mergeRoutes = function mergeRoutes (oldRoutes, newRoute
         var path = route.path;
 
         if (oldRoute) {
-          (oldRoute.children || (oldRoute.children = [])).push(
+(oldRoute.children || (oldRoute.children = [])).push(
             Object.assign({}, route, {
-              path: (
+              path:
                 parentPath && path.startsWith('/')
-                  ? path = path.replace(/^\/*/, '')
-                  : path
-              ) /* fix: @issue that nested paths that start with `/` will be treated as a root path */,
-            }));
+                  ? (path = path.replace(/^\/*/, ''))
+                  : path /* fix: @issue that nested paths that start with `/` will be treated as a root path */
+            })
+          );
         }
       }
     } else {
@@ -576,9 +581,11 @@ EnhancedRouter.prototype.refreshAndCheckState = function refreshAndCheckState (r
 
 EnhancedRouter.prototype.getParentPath = function getParentPath (path, parentPath, name) {
   if (this.pathExists(parentPath)) {
-    return path = completePath(path, parentPath)
+    return (path = completePath(path, parentPath))
   } else {
-    EnhancedRouter.warn(("Cannot found the parent path " + parentPath + " " + (name ? 'of ' + name : '') + " in Vue-MFE MasterRouter"));
+    EnhancedRouter.warn(
+      ("Cannot found the parent path " + parentPath + " " + (name ? 'of ' + name : '') + " in Vue-MFE MasterRouter")
+    );
     return ''
   }
 };
@@ -593,7 +600,7 @@ EnhancedRouter.prototype.nameExists = function nameExists (name) {
 
 EnhancedRouter.prototype.findRoute = function findRoute$1 (route) {
   var path = (isString(route) && route) || (isObject(route) && route.path);
-  return path && findRoute(this.routes, path) || null
+  return (path && findRoute(this.routes, path)) || null
 };
 
 function objectWithoutProperties$1 (obj, exclude) { var target = {}; for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k) && exclude.indexOf(k) === -1) target[k] = obj[k]; return target; }
