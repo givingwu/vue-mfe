@@ -48,7 +48,7 @@ export function ensurePathSlash(path) {
   const trailingSlashRE = /\/?$/
   path = path !== '/' ? path.replace(trailingSlashRE, '') : path
 
-  return path ? (ensureSlash(path) ? path : '/' + path) : ''
+  return path ? (ensureSlash(path) ? path : '/' + path) : '/'
 }
 
 export function ensureSlash(path) {
