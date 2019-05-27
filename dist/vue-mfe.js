@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v0.0.1
+  * vue-mfe v1.0.0
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -418,7 +418,7 @@ function ensurePathSlash(path) {
   var trailingSlashRE = /\/?$/;
   path = path !== '/' ? path.replace(trailingSlashRE, '') : path;
 
-  return path ? (ensureSlash(path) ? path : '/' + path) : ''
+  return path ? (ensureSlash(path) ? path : '/' + path) : '/'
 }
 
 function ensureSlash(path) {
@@ -893,7 +893,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
   return VueMfe;
 }(Observer));
 
-VueMfe.version = '0.0.1';
+VueMfe.version = '1.0.0';
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,
