@@ -18,7 +18,7 @@ let _Vue
  * @class VueMfe
  * @description Vue micro front-end Centralized Controller
  */
-export default class VueMfe extends Observer  {
+export default class VueMfe extends Observer {
   static log() {
     return getLogger(VueMfe.name)(arguments)
   }
@@ -134,11 +134,12 @@ export default class VueMfe extends Observer  {
     return this.lazyloader
       .load(args)
       .then((module) => {
-        VueMfe.log('installApp module', module)
+        VueMfe.log('install App module', module)
+
         return this.installModule(module)
       })
       .then((success) => {
-        VueMfe.log('installApp success', success)
+        VueMfe.log(`install App ${name} success`, success)
 
         if (success) {
           this.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS
@@ -239,14 +240,16 @@ export default class VueMfe extends Observer  {
 
   /**
    * @description get the domain-app prefix name by current router and next route
-   * @param {VueRouter} router
-   * @param {VueRoute} next
-   * @param {?Boolean} ignoreCase
+   * @param {VueRoute} route
+   * @returns {string} name
    */
   _getPrefixName(route) {
-    return route.name && route.name.includes('.')
-      ? this._getPrefixNameByDelimiter(route.name, '.')
-      : this._getPrefixNameByDelimiter(route.path, '/')
+    return (
+      route.domainName ||
+      (route.name && route.name.includes('.')
+        ? this._getPrefixNameByDelimiter(route.name, '.')
+        : this._getPrefixNameByDelimiter(route.path, '/'))
+    )
   }
 
   _getPrefixNameByDelimiter(str, delimiter) {
@@ -295,4 +298,3 @@ VueMfe.ERROR_CODE = {
   LOAD_DUPLICATE_WITHOUT_PATH: -2,
   APP_INIT_FAILED: -3
 }
-

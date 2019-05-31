@@ -751,11 +751,12 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     return this.lazyloader
       .load(args)
       .then(function (module) {
-        VueMfe.log('installApp module', module);
+        VueMfe.log('install App module', module);
+
         return this$1.installModule(module)
       })
       .then(function (success) {
-        VueMfe.log('installApp success', success);
+        VueMfe.log(("install App " + name + " success"), success);
 
         if (success) {
           this$1.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS;
@@ -858,14 +859,16 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
 
   /**
    * @description get the domain-app prefix name by current router and next route
-   * @param {VueRouter} router
-   * @param {VueRoute} next
-   * @param {?Boolean} ignoreCase
+   * @param {VueRoute} route
+   * @returns {string} name
    */
   VueMfe.prototype._getPrefixName = function _getPrefixName (route) {
-    return route.name && route.name.includes('.')
-      ? this._getPrefixNameByDelimiter(route.name, '.')
-      : this._getPrefixNameByDelimiter(route.path, '/')
+    return (
+      route.domainName ||
+      (route.name && route.name.includes('.')
+        ? this._getPrefixNameByDelimiter(route.name, '.')
+        : this._getPrefixNameByDelimiter(route.path, '/'))
+    )
   };
 
   VueMfe.prototype._getPrefixNameByDelimiter = function _getPrefixNameByDelimiter (str, delimiter) {
