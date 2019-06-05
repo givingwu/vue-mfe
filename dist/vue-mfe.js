@@ -273,15 +273,17 @@ Lazyloader.prototype.load = function load (ref) {
     var this$1 = this;
     var name = ref.name;
 
-  return this.getRouteEntry(name)
-    .then(function (url) {
-      var resource = isFunction(url) ? url() : url;
-      Lazyloader.log('getRouteEntry resource', resource);
+  return this.getRouteEntry(name).then(function (url) {
+    var resource = isFunction(url) ? url() : url;
+    Lazyloader.log('getRouteEntry resource', resource);
 
-      return isDev && isObject(resource) && !isArray(resource)
-        ? resource /* if local import('url') */
-        : this$1.installResources(isArray(resource) ? resource : [resource], this$1.getName(name))
-    })
+    return isDev && isObject(resource) && !isArray(resource)
+      ? resource /* if local import('url') */
+      : this$1.installResources(
+          (isArray(resource) ? resource : [resource]).filter(Boolean),
+          this$1.getName(name)
+        )
+  })
 };
 
 Lazyloader.prototype.getRouteEntry = function getRouteEntry (name) {
@@ -292,22 +294,21 @@ Lazyloader.prototype.getRouteEntry = function getRouteEntry (name) {
   if (cache) {
     return Promise.resolve(cache)
   } else {
-    return Promise.resolve(this.getResource(name))
-      .then(function (data) {
-          if ( data === void 0 ) data = {};
+    return Promise.resolve(this.getResource(name)).then(function (data) {
+        if ( data === void 0 ) data = {};
 
-        // merge cached with data
-        this$1.cached = Object.assign({}, this$1.cached, data);
+      // merge cached with data
+      this$1.cached = Object.assign({}, this$1.cached, data);
 
-        if (data[name]) {
-          return data[name]
-        } else {
-          Lazyloader.log('resources object', JSON.stringify(data));
-          Lazyloader.warn(
-            ("The '" + name + "' cannot be found in 'config.getResource()'")
-          );
-        }
-      })
+      if (data[name]) {
+        return data[name]
+      } else {
+        Lazyloader.log('resources object', JSON.stringify(data));
+        Lazyloader.warn(
+          ("The '" + name + "' cannot be found in 'config.getResource()'")
+        );
+      }
+    })
   }
 };
 
@@ -322,7 +323,8 @@ Lazyloader.prototype.installResources = function installResources (urls, name) {
   var scripts = urls.filter(function (url) { return url.endsWith('.js'); });
 
   if (isArray(allCss) && allCss.length) {
-    Promise.all(allCss.map(function (css) { return lazyloadStyle(css); })).catch(function (error) { return Lazyloader.warn(error); });
+    Promise.all(allCss.map(function (css) { return lazyloadStyle(css); })).catch(function (error) { return Lazyloader.warn(error); }
+    );
   }
 
   if (isArray(scripts) && scripts.length) {
