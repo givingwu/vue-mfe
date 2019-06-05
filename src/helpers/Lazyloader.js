@@ -1,4 +1,12 @@
-import { isDev, isObject, isArray, getLogger, getWarning, serialExecute, isFunction } from '../utils';
+import {
+  isDev,
+  isObject,
+  isArray,
+  getLogger,
+  getWarning,
+  serialExecute,
+  isFunction
+} from '../utils'
 import { lazyloadStyle, lazyLoadScript } from '../utils/dom'
 
 /**
@@ -6,7 +14,7 @@ import { lazyloadStyle, lazyLoadScript } from '../utils/dom'
  * @description only focus on load resource from `config.getResource()`.
  */
 export default class Lazyloader {
-  static log () {
+  static log() {
     return getLogger('VueMfe.' + Lazyloader.name)(arguments)
   }
 
@@ -19,37 +27,38 @@ export default class Lazyloader {
   }
 
   load({ name }) {
-    return this.getRouteEntry(name)
-      .then((url) => {
-        const resource = isFunction(url) ? url() : url
-        Lazyloader.log('getRouteEntry resource', resource);
+    return this.getRouteEntry(name).then((url) => {
+      const resource = isFunction(url) ? url() : url
+      Lazyloader.log('getRouteEntry resource', resource)
 
-        return isDev && isObject(resource) && !isArray(resource)
-          ? resource /* if local import('url') */
-          : this.installResources(isArray(resource) ? resource : [resource], this.getName(name))
-      })
+      return isDev && isObject(resource) && !isArray(resource)
+        ? resource /* if local import('url') */
+        : this.installResources(
+            (isArray(resource) ? resource : [resource]).filter(Boolean),
+            this.getName(name)
+          )
+    })
   }
 
-  getRouteEntry (name) {
+  getRouteEntry(name) {
     let cache = this.cached[name]
 
     if (cache) {
       return Promise.resolve(cache)
     } else {
-      return Promise.resolve(this.getResource(name))
-        .then((data = {}) => {
-          // merge cached with data
-          this.cached = Object.assign({}, this.cached, data)
+      return Promise.resolve(this.getResource(name)).then((data = {}) => {
+        // merge cached with data
+        this.cached = Object.assign({}, this.cached, data)
 
-          if (data[name]) {
-            return data[name]
-          } else {
-            Lazyloader.log('resources object', JSON.stringify(data))
-            Lazyloader.warn(
-              `The '${name}' cannot be found in 'config.getResource()'`
-            )
-          }
-        })
+        if (data[name]) {
+          return data[name]
+        } else {
+          Lazyloader.log('resources object', JSON.stringify(data))
+          Lazyloader.warn(
+            `The '${name}' cannot be found in 'config.getResource()'`
+          )
+        }
+      })
     }
   }
 
@@ -59,12 +68,14 @@ export default class Lazyloader {
    * @param {Array<URL> | URL} urls
    * @param {string} name
    */
-  installResources (urls, name) {
+  installResources(urls, name) {
     const allCss = urls.filter((url) => url.endsWith('.css'))
     const scripts = urls.filter((url) => url.endsWith('.js'))
 
     if (isArray(allCss) && allCss.length) {
-      Promise.all(allCss.map((css) => lazyloadStyle(css))).catch((error) => Lazyloader.warn(error))
+      Promise.all(allCss.map((css) => lazyloadStyle(css))).catch((error) =>
+        Lazyloader.warn(error)
+      )
     }
 
     if (isArray(scripts) && scripts.length) {
