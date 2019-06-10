@@ -23,33 +23,33 @@ module.exports = [
   {
     file: resolve('dist/' + libraryName + '.js'),
     format: 'umd',
-    env: 'development',
+    env: 'development'
   },
   {
     file: resolve('dist/' + libraryName + '.min.js'),
     format: 'umd',
-    env: 'production',
+    env: 'production'
   },
   {
     file: resolve('dist/' + libraryName + '.common.js'),
-    format: 'cjs',
+    format: 'cjs'
   },
   {
     file: resolve('dist/' + libraryName + '.esm.js'),
-    format: 'es',
+    format: 'es'
   },
   {
     file: resolve('dist/' + libraryName + '.esm.browser.js'),
     format: 'es',
     env: 'development',
-    transpile: false,
+    transpile: false
   },
   {
     file: resolve('dist/' + libraryName + '.esm.browser.min.js'),
     format: 'es',
     env: 'production',
-    transpile: false,
-  },
+    transpile: false
+  }
 ].map(genConfig)
 
 function genConfig(opts) {
@@ -62,11 +62,11 @@ function genConfig(opts) {
         cjs(),
         opts.format !== 'cjs' &&
           replace({
-            '__VERSION__': version,
+            __VERSION__: version,
             'process.env.VUE_APP_MASTER': true,
-            'process.env.VUE_APP_PORTAL': undefined,
-          }),
-      ].filter(Boolean),
+            'process.env.VUE_APP_PORTAL': undefined
+          })
+      ].filter(Boolean)
     },
     output: {
       file: opts.file,
@@ -75,20 +75,20 @@ function genConfig(opts) {
       name: camelcase(libraryName, { pascalCase: true }),
       globals: {
         vue: 'Vue',
-        'vue-router': 'VueRouter',
+        'vue-router': 'VueRouter'
       },
       onwarn: (msg, warn) => {
         if (!/Circular/.test(msg)) {
           warn(msg)
         }
-      },
-    },
+      }
+    }
   }
 
   if (opts.env) {
     config.input.plugins.unshift(
       replace({
-        'process.env.NODE_ENV': JSON.stringify(opts.env),
+        'process.env.NODE_ENV': JSON.stringify(opts.env)
       })
     )
   }

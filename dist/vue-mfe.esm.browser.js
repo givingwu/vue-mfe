@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v0.0.1
+  * vue-mfe v1.0.0
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -246,7 +246,7 @@ function lazyLoadScript(url, globalVar) {
  * @description only focus on load resource from `config.getResource()`.
  */
 class Lazyloader {
-  static log () {
+  static log() {
     return getLogger('VueMfe.' + Lazyloader.name)(arguments)
   }
 
@@ -259,37 +259,38 @@ class Lazyloader {
   }
 
   load({ name }) {
-    return this.getRouteEntry(name)
-      .then((url) => {
-        const resource = isFunction(url) ? url() : url;
-        Lazyloader.log('getRouteEntry resource', resource);
+    return this.getRouteEntry(name).then((url) => {
+      const resource = isFunction(url) ? url() : url;
+      Lazyloader.log('getRouteEntry resource', resource);
 
-        return isDev && isObject(resource) && !isArray(resource)
-          ? resource /* if local import('url') */
-          : this.installResources(isArray(resource) ? resource : [resource], this.getName(name))
-      })
+      return isDev && isObject(resource) && !isArray(resource)
+        ? resource /* if local import('url') */
+        : this.installResources(
+            (isArray(resource) ? resource : [resource]).filter(Boolean),
+            this.getName(name)
+          )
+    })
   }
 
-  getRouteEntry (name) {
+  getRouteEntry(name) {
     let cache = this.cached[name];
 
     if (cache) {
       return Promise.resolve(cache)
     } else {
-      return Promise.resolve(this.getResource(name))
-        .then((data = {}) => {
-          // merge cached with data
-          this.cached = Object.assign({}, this.cached, data);
+      return Promise.resolve(this.getResource(name)).then((data = {}) => {
+        // merge cached with data
+        this.cached = Object.assign({}, this.cached, data);
 
-          if (data[name]) {
-            return data[name]
-          } else {
-            Lazyloader.log('resources object', JSON.stringify(data));
-            Lazyloader.warn(
-              `The '${name}' cannot be found in 'config.getResource()'`
-            );
-          }
-        })
+        if (data[name]) {
+          return data[name]
+        } else {
+          Lazyloader.log('resources object', JSON.stringify(data));
+          Lazyloader.warn(
+            `The '${name}' cannot be found in 'config.getResource()'`
+          );
+        }
+      })
     }
   }
 
@@ -299,12 +300,14 @@ class Lazyloader {
    * @param {Array<URL> | URL} urls
    * @param {string} name
    */
-  installResources (urls, name) {
+  installResources(urls, name) {
     const allCss = urls.filter((url) => url.endsWith('.css'));
     const scripts = urls.filter((url) => url.endsWith('.js'));
 
     if (isArray(allCss) && allCss.length) {
-      Promise.all(allCss.map((css) => lazyloadStyle(css))).catch((error) => Lazyloader.warn(error));
+      Promise.all(allCss.map((css) => lazyloadStyle(css))).catch((error) =>
+        Lazyloader.warn(error)
+      );
     }
 
     if (isArray(scripts) && scripts.length) {
@@ -396,7 +399,7 @@ function ensurePathSlash(path) {
   const trailingSlashRE = /\/?$/;
   path = path !== '/' ? path.replace(trailingSlashRE, '') : path;
 
-  return path ? (ensureSlash(path) ? path : '/' + path) : ''
+  return path ? (ensureSlash(path) ? path : '/' + path) : '/'
 }
 
 function ensureSlash(path) {
@@ -414,7 +417,7 @@ class EnhancedRouter {
 
   constructor(router) {
     if (router.addRoutes !== this.addRoutes) {
-      router.addRoutes = this.addRoutes;
+      router.addRoutes = this.addRoutes.bind(this);
     }
 
     this.router = router;
@@ -438,6 +441,11 @@ class EnhancedRouter {
    * @param {?String} parentPath
    */
   addRoutes(routes, parentPath) {
+    if (isDev) {
+      console.log(this.pathList);
+      console.log(this.pathMap);
+    }
+
     this.refreshAndCheckState(routes, parentPath);
     this.router.matcher = new VueRouter(
       this.normalizeOptions(this.router.options, { routes }, parentPath)
@@ -457,7 +465,7 @@ class EnhancedRouter {
 
     return Object.assign(
       {
-        routes: this.mergeRoutes(oldRoutes, newRoutes, parentPath),
+        routes: this.mergeRoutes(oldRoutes, newRoutes, parentPath)
       },
       newProps,
       oldProps
@@ -474,7 +482,7 @@ class EnhancedRouter {
   mergeRoutes(oldRoutes, newRoutes, parentPath) {
     const needMatchPath = parentPath;
 
-    newRoutes.forEach(route => {
+    newRoutes.forEach((route) => {
       if (isString(route.parentPath)) {
         parentPath = route.parentPath;
         delete route.parentPath;
@@ -490,14 +498,14 @@ class EnhancedRouter {
           let path = route.path;
 
           if (oldRoute) {
-            (oldRoute.children || (oldRoute.children = [])).push(
+(oldRoute.children || (oldRoute.children = [])).push(
               Object.assign({}, route, {
-                path: (
+                path:
                   parentPath && path.startsWith('/')
-                    ? path = path.replace(/^\/*/, '')
-                    : path
-                ) /* fix: @issue that nested paths that start with `/` will be treated as a root path */,
-              }));
+                    ? (path = path.replace(/^\/*/, ''))
+                    : path /* fix: @issue that nested paths that start with `/` will be treated as a root path */
+              })
+            );
           }
         }
       } else {
@@ -548,9 +556,13 @@ class EnhancedRouter {
 
   getParentPath(path, parentPath, name) {
     if (this.pathExists(parentPath)) {
-      return path = completePath(path, parentPath)
+      return (path = completePath(path, parentPath))
     } else {
-      EnhancedRouter.warn(`Cannot found the parent path ${parentPath} ${name ? 'of ' + name : ''} in Vue-MFE MasterRouter`);
+      EnhancedRouter.warn(
+        `Cannot found the parent path ${parentPath} ${
+          name ? 'of ' + name : ''
+        } in Vue-MFE MasterRouter`
+      );
       return ''
     }
   }
@@ -565,7 +577,7 @@ class EnhancedRouter {
 
   findRoute(route) {
     let path = (isString(route) && route) || (isObject(route) && route.path);
-    return path && findRoute(this.routes, path) || null
+    return (path && findRoute(this.routes, path)) || null
   }
 }
 
@@ -575,7 +587,7 @@ let _Vue;
  * @class VueMfe
  * @description Vue micro front-end Centralized Controller
  */
-class VueMfe extends Observer  {
+class VueMfe extends Observer {
   static log() {
     return getLogger(VueMfe.name)(arguments)
   }
@@ -691,11 +703,12 @@ class VueMfe extends Observer  {
     return this.lazyloader
       .load(args)
       .then((module) => {
-        VueMfe.log('installApp module', module);
+        VueMfe.log('install App module', module);
+
         return this.installModule(module)
       })
       .then((success) => {
-        VueMfe.log('installApp success', success);
+        VueMfe.log(`install App ${name} success`, success);
 
         if (success) {
           this.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS;
@@ -796,14 +809,16 @@ class VueMfe extends Observer  {
 
   /**
    * @description get the domain-app prefix name by current router and next route
-   * @param {VueRouter} router
-   * @param {VueRoute} next
-   * @param {?Boolean} ignoreCase
+   * @param {VueRoute} route
+   * @returns {string} name
    */
   _getPrefixName(route) {
-    return route.name && route.name.includes('.')
-      ? this._getPrefixNameByDelimiter(route.name, '.')
-      : this._getPrefixNameByDelimiter(route.path, '/')
+    return (
+      route.domainName ||
+      (route.name && route.name.includes('.')
+        ? this._getPrefixNameByDelimiter(route.name, '.')
+        : this._getPrefixNameByDelimiter(route.path, '/'))
+    )
   }
 
   _getPrefixNameByDelimiter(str, delimiter) {
@@ -836,7 +851,7 @@ class VueMfe extends Observer  {
   }
 }
 
-VueMfe.version = '0.0.1';
+VueMfe.version = '1.0.0';
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,

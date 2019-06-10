@@ -1,5 +1,5 @@
 import VueRouter from 'vue-router'
-import { isString, isObject, getWarning } from '../utils'
+import { isDev, isString, isObject, getWarning } from '../utils'
 import { findRoute, completePath } from '../utils/route'
 
 /**
@@ -13,7 +13,7 @@ export default class EnhancedRouter {
 
   constructor(router) {
     if (router.addRoutes !== this.addRoutes) {
-      router.addRoutes = this.addRoutes
+      router.addRoutes = this.addRoutes.bind(this)
     }
 
     this.router = router
@@ -37,6 +37,11 @@ export default class EnhancedRouter {
    * @param {?String} parentPath
    */
   addRoutes(routes, parentPath) {
+    if (isDev) {
+      console.log(this.pathList)
+      console.log(this.pathMap)
+    }
+
     this.refreshAndCheckState(routes, parentPath)
     this.router.matcher = new VueRouter(
       this.normalizeOptions(this.router.options, { routes }, parentPath)
@@ -56,7 +61,7 @@ export default class EnhancedRouter {
 
     return Object.assign(
       {
-        routes: this.mergeRoutes(oldRoutes, newRoutes, parentPath),
+        routes: this.mergeRoutes(oldRoutes, newRoutes, parentPath)
       },
       newProps,
       oldProps
@@ -73,7 +78,7 @@ export default class EnhancedRouter {
   mergeRoutes(oldRoutes, newRoutes, parentPath) {
     const needMatchPath = parentPath
 
-    newRoutes.forEach(route => {
+    newRoutes.forEach((route) => {
       if (isString(route.parentPath)) {
         parentPath = route.parentPath
         delete route.parentPath
@@ -89,14 +94,14 @@ export default class EnhancedRouter {
           let path = route.path
 
           if (oldRoute) {
-            (oldRoute.children || (oldRoute.children = [])).push(
+            ;(oldRoute.children || (oldRoute.children = [])).push(
               Object.assign({}, route, {
-                path: (
+                path:
                   parentPath && path.startsWith('/')
-                    ? path = path.replace(/^\/*/, '')
-                    : path
-                ) /* fix: @issue that nested paths that start with `/` will be treated as a root path */,
-              }))
+                    ? (path = path.replace(/^\/*/, ''))
+                    : path /* fix: @issue that nested paths that start with `/` will be treated as a root path */
+              })
+            )
           }
         }
       } else {
@@ -147,9 +152,13 @@ export default class EnhancedRouter {
 
   getParentPath(path, parentPath, name) {
     if (this.pathExists(parentPath)) {
-      return path = completePath(path, parentPath)
+      return (path = completePath(path, parentPath))
     } else {
-      EnhancedRouter.warn(`Cannot found the parent path ${parentPath} ${name ? 'of ' + name : ''} in Vue-MFE MasterRouter`)
+      EnhancedRouter.warn(
+        `Cannot found the parent path ${parentPath} ${
+          name ? 'of ' + name : ''
+        } in Vue-MFE MasterRouter`
+      )
       return ''
     }
   }
@@ -164,7 +173,7 @@ export default class EnhancedRouter {
 
   findRoute(route) {
     let path = (isString(route) && route) || (isObject(route) && route.path)
-    return path && findRoute(this.routes, path) || null
+    return (path && findRoute(this.routes, path)) || null
   }
 }
 

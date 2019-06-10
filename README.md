@@ -1,13 +1,3 @@
-<p align="center"><a href="https://vuchan.github.io/vue-mfe" target="_blank" rel="noopener noreferrer"><img width="200" src="./docs/.vuepress/public/images/mfe-logo.png" alt="VueMfe logo"></a></p>
-
-<p align="center">
-  <a href="https://npmcharts.com/compare/vue-mfe?minimal=true"><img src="https://img.shields.io/npm/dm/vue-mfe.svg" alt="Downloads"></a>
-  <a href="https://www.npmjs.com/package/vue-mfe"><img src="https://img.shields.io/npm/v/vue-mfe.svg" alt="Version"></a>
-  <a href="https://github.com/996icu/996.ICU/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-Anti%20996-blue.svg" alt="License"></a>
-  <br>
-</p>
-
-
 # VueMfe
 
 ✨ A JavaScript library for Vue.js micro front-end solution.
@@ -32,7 +22,7 @@ ___________
 
 ## API
 
-`mfe.js` use VueMfe as a Vue plugin and initialization it with config options:
++ `mfe.js` 初始化 Vue-MFE:
 ```js
 import Vue from 'vue'
 import VueMfe from 'vue-mfe';
@@ -42,10 +32,10 @@ Vue.use(VueMfe)
 
 export default new VueMfe({
   router,
-  ignoreCase: true, // ignore path case to make path '/AuTh/uSEr' has same result with path '/auth/user'
-  parentPath: '/', // By default, dynamic routes are registered to children of this route.
-  getNamespace: (name) => `__domain__app__${name}`, // a function to returns the global namespace by specific rule
-  getResource: () => {
+  ignoreCase: true, // 忽略路径大小写 '/AuTh/uSEr' => '/auth/user'
+  parentPath: '/', // 默认的 parentPath => router.addRoutes(routes, parentPath)
+  getNamespace: (name) => `__domain__app__${name}`, // 返回子 domain 的全局命名规则
+  getResource: () => { // 获取资源
     if (process.env.NODE_ENV === 'development') {
       return {
         bar: () => import('../../../domain-app/bar/esm'),
@@ -61,7 +51,7 @@ export default new VueMfe({
 });
 ```
 
-`preinstall.js` preinstall a micro-app with name:
++ `preinstall.js` 命名前缀预安装一个应用:
 ```js
 import mfe from './mfe'
 
@@ -89,7 +79,7 @@ if (!mfe.isInstalled('foo')) {
 }
 ```
 
-`main.js` initialize an app with VueMfe instance:
+`main.js` 初始化应用:
 ```js
 import Vue from 'vue'
 import VueMfe from 'vue-mfe'
@@ -98,7 +88,7 @@ import mfe from './mfe'
 import './preinstall'
 
 new Vue({
-  mfe,
+  mfe, // 像 Vuex 一样传入应用
   router,
   created() {
     // event: when load micro-app start
@@ -125,24 +115,6 @@ new Vue({
   `
 }).$mount('#app')
 ```
-
-
-## DEMO
-install all dependencies
-```bash
-npm install
-```
-
-demo with webpack
-```bash
-npm run example:webpack
-```
-
-pure demo
-```bash
-npm run example:pure
-```
-
 
 ## TODO
 + [ ] write unit test cases

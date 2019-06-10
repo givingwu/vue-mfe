@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v0.0.1
+  * vue-mfe v1.0.0
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -267,15 +267,17 @@ Lazyloader.prototype.load = function load (ref) {
     var this$1 = this;
     var name = ref.name;
 
-  return this.getRouteEntry(name)
-    .then(function (url) {
-      var resource = isFunction(url) ? url() : url;
-      Lazyloader.log('getRouteEntry resource', resource);
+  return this.getRouteEntry(name).then(function (url) {
+    var resource = isFunction(url) ? url() : url;
+    Lazyloader.log('getRouteEntry resource', resource);
 
-      return isDev && isObject(resource) && !isArray(resource)
-        ? resource /* if local import('url') */
-        : this$1.installResources(isArray(resource) ? resource : [resource], this$1.getName(name))
-    })
+    return isDev && isObject(resource) && !isArray(resource)
+      ? resource /* if local import('url') */
+      : this$1.installResources(
+          (isArray(resource) ? resource : [resource]).filter(Boolean),
+          this$1.getName(name)
+        )
+  })
 };
 
 Lazyloader.prototype.getRouteEntry = function getRouteEntry (name) {
@@ -286,22 +288,21 @@ Lazyloader.prototype.getRouteEntry = function getRouteEntry (name) {
   if (cache) {
     return Promise.resolve(cache)
   } else {
-    return Promise.resolve(this.getResource(name))
-      .then(function (data) {
-          if ( data === void 0 ) data = {};
+    return Promise.resolve(this.getResource(name)).then(function (data) {
+        if ( data === void 0 ) data = {};
 
-        // merge cached with data
-        this$1.cached = Object.assign({}, this$1.cached, data);
+      // merge cached with data
+      this$1.cached = Object.assign({}, this$1.cached, data);
 
-        if (data[name]) {
-          return data[name]
-        } else {
-          Lazyloader.log('resources object', JSON.stringify(data));
-          Lazyloader.warn(
-            ("The '" + name + "' cannot be found in 'config.getResource()'")
-          );
-        }
-      })
+      if (data[name]) {
+        return data[name]
+      } else {
+        Lazyloader.log('resources object', JSON.stringify(data));
+        Lazyloader.warn(
+          ("The '" + name + "' cannot be found in 'config.getResource()'")
+        );
+      }
+    })
   }
 };
 
@@ -316,7 +317,8 @@ Lazyloader.prototype.installResources = function installResources (urls, name) {
   var scripts = urls.filter(function (url) { return url.endsWith('.js'); });
 
   if (isArray(allCss) && allCss.length) {
-    Promise.all(allCss.map(function (css) { return lazyloadStyle(css); })).catch(function (error) { return Lazyloader.warn(error); });
+    Promise.all(allCss.map(function (css) { return lazyloadStyle(css); })).catch(function (error) { return Lazyloader.warn(error); }
+    );
   }
 
   if (isArray(scripts) && scripts.length) {
@@ -412,7 +414,7 @@ function ensurePathSlash(path) {
   var trailingSlashRE = /\/?$/;
   path = path !== '/' ? path.replace(trailingSlashRE, '') : path;
 
-  return path ? (ensureSlash(path) ? path : '/' + path) : ''
+  return path ? (ensureSlash(path) ? path : '/' + path) : '/'
 }
 
 function ensureSlash(path) {
@@ -427,7 +429,7 @@ function objectWithoutProperties (obj, exclude) { var target = {}; for (var k in
  */
 var EnhancedRouter = function EnhancedRouter(router) {
   if (router.addRoutes !== this.addRoutes) {
-    router.addRoutes = this.addRoutes;
+    router.addRoutes = this.addRoutes.bind(this);
   }
 
   this.router = router;
@@ -455,6 +457,11 @@ EnhancedRouter.prototype._init = function _init () {
  * @param {?String} parentPath
  */
 EnhancedRouter.prototype.addRoutes = function addRoutes (routes, parentPath) {
+  if (isDev) {
+    console.log(this.pathList);
+    console.log(this.pathMap);
+  }
+
   this.refreshAndCheckState(routes, parentPath);
   this.router.matcher = new VueRouter(
     this.normalizeOptions(this.router.options, { routes: routes }, parentPath)
@@ -478,7 +485,7 @@ EnhancedRouter.prototype.normalizeOptions = function normalizeOptions (oldOpts, 
 
   return Object.assign(
     {
-      routes: this.mergeRoutes(oldRoutes, newRoutes, parentPath),
+      routes: this.mergeRoutes(oldRoutes, newRoutes, parentPath)
     },
     newProps,
     oldProps
@@ -511,14 +518,14 @@ EnhancedRouter.prototype.mergeRoutes = function mergeRoutes (oldRoutes, newRoute
         var path = route.path;
 
         if (oldRoute) {
-          (oldRoute.children || (oldRoute.children = [])).push(
+(oldRoute.children || (oldRoute.children = [])).push(
             Object.assign({}, route, {
-              path: (
+              path:
                 parentPath && path.startsWith('/')
-                  ? path = path.replace(/^\/*/, '')
-                  : path
-              ) /* fix: @issue that nested paths that start with `/` will be treated as a root path */,
-            }));
+                  ? (path = path.replace(/^\/*/, ''))
+                  : path /* fix: @issue that nested paths that start with `/` will be treated as a root path */
+            })
+          );
         }
       }
     } else {
@@ -576,9 +583,11 @@ EnhancedRouter.prototype.refreshAndCheckState = function refreshAndCheckState (r
 
 EnhancedRouter.prototype.getParentPath = function getParentPath (path, parentPath, name) {
   if (this.pathExists(parentPath)) {
-    return path = completePath(path, parentPath)
+    return (path = completePath(path, parentPath))
   } else {
-    EnhancedRouter.warn(("Cannot found the parent path " + parentPath + " " + (name ? 'of ' + name : '') + " in Vue-MFE MasterRouter"));
+    EnhancedRouter.warn(
+      ("Cannot found the parent path " + parentPath + " " + (name ? 'of ' + name : '') + " in Vue-MFE MasterRouter")
+    );
     return ''
   }
 };
@@ -593,7 +602,7 @@ EnhancedRouter.prototype.nameExists = function nameExists (name) {
 
 EnhancedRouter.prototype.findRoute = function findRoute$1 (route) {
   var path = (isString(route) && route) || (isObject(route) && route.path);
-  return path && findRoute(this.routes, path) || null
+  return (path && findRoute(this.routes, path)) || null
 };
 
 function objectWithoutProperties$1 (obj, exclude) { var target = {}; for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k) && exclude.indexOf(k) === -1) target[k] = obj[k]; return target; }
@@ -736,11 +745,12 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     return this.lazyloader
       .load(args)
       .then(function (module) {
-        VueMfe.log('installApp module', module);
+        VueMfe.log('install App module', module);
+
         return this$1.installModule(module)
       })
       .then(function (success) {
-        VueMfe.log('installApp success', success);
+        VueMfe.log(("install App " + name + " success"), success);
 
         if (success) {
           this$1.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS;
@@ -843,14 +853,16 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
 
   /**
    * @description get the domain-app prefix name by current router and next route
-   * @param {VueRouter} router
-   * @param {VueRoute} next
-   * @param {?Boolean} ignoreCase
+   * @param {VueRoute} route
+   * @returns {string} name
    */
   VueMfe.prototype._getPrefixName = function _getPrefixName (route) {
-    return route.name && route.name.includes('.')
-      ? this._getPrefixNameByDelimiter(route.name, '.')
-      : this._getPrefixNameByDelimiter(route.path, '/')
+    return (
+      route.domainName ||
+      (route.name && route.name.includes('.')
+        ? this._getPrefixNameByDelimiter(route.name, '.')
+        : this._getPrefixNameByDelimiter(route.path, '/'))
+    )
   };
 
   VueMfe.prototype._getPrefixNameByDelimiter = function _getPrefixNameByDelimiter (str, delimiter) {
@@ -887,7 +899,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
   return VueMfe;
 }(Observer));
 
-VueMfe.version = '0.0.1';
+VueMfe.version = '1.0.0';
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,
