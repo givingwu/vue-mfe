@@ -1,6 +1,6 @@
 {
   "name": "vue-mfe",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "A micro-frontend implementation based on Vue.js.",
   "sideEffects": false,
   "main": "dist/vue-mfe.common.js",
@@ -20,6 +20,11 @@
     "docs": "vuepress dev docs",
     "docs:build": "vuepress build docs"
   },
+  "files": [
+    "dist",
+    "package.json",
+    "README.md"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/vuchan/vue-mfe"

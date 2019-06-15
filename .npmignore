@@ -2,10 +2,9 @@
 /example
 /node_modules
 /src
+/docs
 /old
 .npmrc
 .gitignore
-createPortalApp.js
-interface.js
 *.log
 *.lock
