@@ -131,7 +131,7 @@ new Vue({
 + [ ] write unit test cases
 + [ ] write demo with multiple webpack
 + [ ] update docs by vuepress
-+ [ ] publish package to npm registry
++ [x] publish package to npm registry
 
 
 ## Troubleshooting
