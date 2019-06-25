@@ -1,0 +1,5 @@
+# https://cli.vuejs.org/guide/mode-and-env.html#using-env-variables-in-client-side-code
+VUE_APP_PORTAL=1
+<%_ if (domainRoutePrefix) { _%>
+VUE_APP_NAME="<%= domainRoutePrefix %>"
+<%_ } _%>
