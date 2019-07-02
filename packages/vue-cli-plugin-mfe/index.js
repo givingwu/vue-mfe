@@ -38,7 +38,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
   const {
     useMasterRuntime,
     masterRuntimeName,
-    domainRoutePrefix,
+    domainRoutePrefix
   } = PORTAL_CONFIG
 
   const PACKAGE_VERSION = packageJSON.version
@@ -72,7 +72,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
     output: 'package',
     upload: true,
     json: true,
-    disableSourceMap: false,
+    disableSourceMap: false
   }
 
   /* see #usage.2 Add a new cli-service command */
@@ -85,8 +85,8 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
         '--upload-url': `specify package-server API url to upload bundled files`,
         '--download-url': `specify package-server API url to download static files`,
         '--disable-source-map': `disable source map. default: false`,
-        '--output-path': `specify the output path of bundled files? default: package => ${cwd}/package`,
-      },
+        '--output-path': `specify the output path of bundled files? default: package => ${cwd}/package`
+      }
     },
     async (args) => {
       normalizeKey(args)
@@ -111,7 +111,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
         ts,
         host: args.uploadUrl,
         name: packageName,
-        version: PACKAGE_VERSION,
+        version: PACKAGE_VERSION
       }
       const nameWithVer = packageName + '@' + PACKAGE_VERSION + '-' + ts
       const outputPath = api.resolve(
@@ -144,13 +144,13 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
           library: {
             root: '__domain__app__' + camelizedName,
             amd: packageName,
-            commonjs: packageName,
+            commonjs: packageName
           },
           libraryTarget: 'umd',
           filename: 'js/' + camelizedName + '-[chunkhash:8].umd.js',
           // libraryExport: name,
           chunkLoadTimeout: 120000,
-          crossOriginLoading: 'anonymous',
+          crossOriginLoading: 'anonymous'
         },
         optimization: {
           splitChunks: {
@@ -160,38 +160,36 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
                 // eslint-disable-next-line no-useless-escape
                 test: /[\\\/]node_modules[\\\/]/,
                 priority: -10,
-                chunks: 'initial',
+                chunks: 'initial'
               },
               common: {
                 name: camelizedName + '-' + 'chunk-common',
                 minChunks: 2,
                 priority: -20,
                 chunks: 'initial',
-                reuseExistingChunk: true,
-              },
-            },
-          },
+                reuseExistingChunk: true
+              }
+            }
+          }
         },
         plugins: [
           args.downloadUrl &&
             new WebpackRequireFrom({
-              path: args.downloadUrl + args.name + '/',
+              path: args.downloadUrl + args.name + '/'
             }),
           new WebpackManifest({
-            appendObject: packageData,
+            appendObject: packageData
           }),
           new WebpackArchiver({
             source: api.resolve(args.output),
             destination: outputPath,
-            format: 'tar',
-          }),
-          /* new webpackUploader({
-            source: args.output + '/' + camelizedName + '*.tar',
-            url: host,
-            saveDir: packageName,
-          }), */
-        ].filter(Boolean),
+            format: 'tar'
+          })
+        ].filter(Boolean)
       })
+
+      const cfg = api.resolveWebpackConfig()
+      console.log('webpack externals: ', JSON.stringify(cfg.externals))
 
       try {
         await buildCMD(args, api, options)
@@ -207,7 +205,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
 
 /* see #usage.4 Specifying Mode for Commands */
 module.exports.defaultModes = {
-  package: 'production',
+  package: 'production'
 }
 
 function checkExistEntries(api, paths) {
@@ -237,7 +235,7 @@ function getPortalEntry(api, isDev) {
     portalEntry,
     './src/router/routes.js',
     './src/routes.js',
-    mainEntry,
+    mainEntry
   ]) /* 否则，使用 路由 文件 */
 
   /* 如果是产品环境 build，且未匹配到指定的 entry 文件 */
