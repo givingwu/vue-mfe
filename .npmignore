@@ -1,6 +1,7 @@
 /build
 /example
 /node_modules
+/packages
 /src
 /docs
 /old

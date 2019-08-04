@@ -1,0 +1,16 @@
+[
+  {
+    "menuName": "<%= domainRoutePrefix %>",
+    "linkPath": "/<%= domainRoutePrefix %>",
+    "children": [
+      {
+        "menuName": "<%= domainRoutePrefix %> PAGE A",
+        "linkPath": "/<%= domainRoutePrefix %>/a"
+      },
+      {
+        "menuName": "<%= domainRoutePrefix %> PAGE B",
+        "linkPath": "/<%= domainRoutePrefix %>/b"
+      }
+    ]
+  }
+]

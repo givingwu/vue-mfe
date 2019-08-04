@@ -1,7 +1,6 @@
 /**
  * @description lazy load style form a remote url then returns a promise
  * @param {String} url remote-url
- * @param {String} globalVar global variable key
  * @return {Promise}
  */
 export function lazyloadStyle(url) {

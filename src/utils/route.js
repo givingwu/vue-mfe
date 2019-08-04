@@ -1,8 +1,9 @@
 /**
  * findRoute 深度优先递归遍历找到匹配 matchPath 的 Route
+ * @typedef {import('vue-router').RouteConfig} Route
  * @param {Array<Route>} routes
  * @param {String} matchPath
- * @returns {Object<Route>}
+ * @returns {Route}
  */
 export function findRoute(routes = [], matchPath) {
   let i = 0
@@ -32,9 +33,9 @@ export function findRoute(routes = [], matchPath) {
 
 /**
  * @description auto complete path with parent path
- * @param {String} path
- * @param {String} parentPath
- * @returns {String}
+ * @param {string} path
+ * @param {string} parentPath
+ * @returns {string}
  */
 export function completePath(path, parentPath) {
   if (parentPath === '/' && path !== '/' && path.startsWith('/')) {
@@ -44,6 +45,10 @@ export function completePath(path, parentPath) {
   }
 }
 
+/**
+ * ensurePathSlash
+ * @param {string} path
+ */
 export function ensurePathSlash(path) {
   const trailingSlashRE = /\/?$/
   path = path !== '/' ? path.replace(trailingSlashRE, '') : path
@@ -51,6 +56,10 @@ export function ensurePathSlash(path) {
   return path ? (ensureSlash(path) ? path : '/' + path) : '/'
 }
 
+/**
+ * ensureSlash
+ * @param {string} path
+ */
 export function ensureSlash(path) {
   return path.charAt(0) === '/'
 }

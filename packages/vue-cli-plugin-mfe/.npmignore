@@ -1,0 +1,10 @@
+/screenshots
+/__test__
+/node_modules
+.gitignore
+.npmrc
+*.log
+
+# OS Files
+.DS_Store
+Thumbs.db
