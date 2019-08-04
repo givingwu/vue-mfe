@@ -8,13 +8,7 @@
 const fs = require('fs')
 const path = require('path')
 const archiver = require('archiver')
-const log = function() {
-  console.log.call(
-    console,
-    '[WebpackArchiver]: ',
-    Array.prototype.slice.call(arguments)
-  )
-}
+const { log } = require('@vue/cli-shared-utils')
 
 function WebpackArchiver(options) {
   if (typeof options === 'string') {
@@ -38,7 +32,7 @@ WebpackArchiver.prototype.apply = function(compiler) {
     // Set output location
     this.execute()
       .then(() => {
-        log(`${destination} existsSync: `, fs.existsSync(destination))
+        // log(`${destination} existsSync: `, fs.existsSync(destination))
         onSuccess && onSuccess()
         cb()
       })
@@ -82,21 +76,21 @@ WebpackArchiver.prototype.execute = function() {
       var archive = archiver(command.format, command.options)
 
       archive.on('error', function(err) {
-        log('archive.on error')
+        log('archive error')
         reject(err)
       })
 
       archive.on('warning', function(err) {
-        log('archive.on warning')
+        log('archive warning')
         reject(err)
       })
 
       archive.on('finish', function() {
-        log('archive.on finish')
+        log('archive finish')
       })
 
       archive.on('end', function() {
-        log('archive.on end')
+        log('archive end')
       })
 
       archive.pipe(output)
