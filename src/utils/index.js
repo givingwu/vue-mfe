@@ -32,7 +32,9 @@ export const getLogger = (key) => (args) => {
   return assert(
     isDev,
     // eslint-disable-next-line
-    () => hasConsole && console.log.apply(null, key ? [key, ...toArray(args)] : args),
+    () =>
+      hasConsole &&
+      console.log.apply(null, key ? [key, ...toArray(args)] : args),
     noop
   )
 }
@@ -62,42 +64,47 @@ export const randomString = () =>
  * capitalize
  * @param {String} str
  */
-export const capitalize = (str) => str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
+export const capitalize = (str) =>
+  str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
 
 /**
  * camelize
  * @param {String} str
  * @param {Boolean} pascalCase
  */
-export const camelize = (str, pascalCase = false) => str
-  .split(/-|_|\s/g)
-  .map((s, i) => (!pascalCase && i === 0 ? s : capitalize(s)))
-  .join('')
+export const camelize = (str, pascalCase = false) =>
+  str
+    .split(/-|_|\s/g)
+    .map((s, i) => (!pascalCase && i === 0 ? s : capitalize(s)))
+    .join('')
 
 /**
  * @description resolve module whether ES Module or CommandJS module
- * @param {Module} module
- * @returns {any*}
+ * @template Module
+ * @property {Object} [default]
+ * @param {Module & Object} module
+ * @returns {*}
  */
-export const resolveModule = (module) => ((module && module.default) || module)
+export const resolveModule = (module) => (module && module.default) || module
 
 /**
  * @description Define immutable property for the given object
  * @param {Object} obj
- * @param {String} key
- * @param {any*} val
+ * @param {string} key
+ * @param {*} val
  */
 export const defineImmutableProp = (obj, key, val) => {
   Object.defineProperty(obj, key, {
     value: val,
     configurable: false,
     enumerable: false,
-    writable: false,
+    writable: false
   })
 }
 
 /**
  * @description execute an array of promises serially
+ * @template T
  * @param {Array<Promise<T>>} promises
  * @returns {Promise<T>} the finally result of promises
  */

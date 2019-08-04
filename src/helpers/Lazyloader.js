@@ -22,14 +22,18 @@ export default class Lazyloader {
     return getWarning('VueMfe.' + Lazyloader.name)(arguments)
   }
 
+  /**
+   * @constructor
+   */
   constructor() {
+    /** @type {{}} */
     this.cached = {}
   }
 
   load({ name }) {
     return this.getRouteEntry(name).then((url) => {
       const resource = isFunction(url) ? url() : url
-      Lazyloader.log('getRouteEntry resource', resource)
+      Lazyloader.log(`App ${name} Resources`, resource)
 
       return isDev && isObject(resource) && !isArray(resource)
         ? resource /* if local import('url') */
@@ -47,15 +51,14 @@ export default class Lazyloader {
       return Promise.resolve(cache)
     } else {
       return Promise.resolve(this.getResource(name)).then((data = {}) => {
-        // merge cached with data
         this.cached = Object.assign({}, this.cached, data)
 
         if (data[name]) {
           return data[name]
         } else {
-          Lazyloader.log('resources object', JSON.stringify(data))
+          Lazyloader.log('All Resources', JSON.stringify(data))
           Lazyloader.warn(
-            `The '${name}' cannot be found in 'config.getResource()'`
+            `The App '${name}' cannot be found in method 'config.getResource()'`
           )
         }
       })
@@ -65,7 +68,8 @@ export default class Lazyloader {
   /**
    * installResources
    * @description install JS/CSS resources
-   * @param {Array<URL> | URL} urls
+   * @typedef {string} Link
+   * @param {Array<Link>} urls
    * @param {string} name
    */
   installResources(urls, name) {
@@ -80,6 +84,7 @@ export default class Lazyloader {
 
     if (isArray(scripts) && scripts.length) {
       return serialExecute(
+        // @ts-ignore
         scripts.map((script) => () => lazyLoadScript(script, name))
       ).catch((error) => {
         throw error

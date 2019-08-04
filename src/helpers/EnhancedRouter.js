@@ -11,12 +11,32 @@ export default class EnhancedRouter {
     return getWarning(EnhancedRouter.name)(arguments)
   }
 
+  /**
+   * @typedef {import('vue-router').Route} VueRoute
+   * @typedef {Object} EnhancedRoute
+   * @property {string} parentPath
+   * @property {Route[]} children
+   * @typedef {VueRoute & EnhancedRoute} Route
+   *
+   * @typedef {import('vue-router').default} VueRouter
+   * @typedef {Object} EnhancedRouterRef
+   * @property {import('vue-router').RouteConfig} options
+   * @property {Object} matcher
+   * @typedef {VueRouter & EnhancedRouterRef} Router
+   *
+   * @param {Router} router
+   */
   constructor(router) {
     if (router.addRoutes !== this.addRoutes) {
       router.addRoutes = this.addRoutes.bind(this)
     }
 
     this.router = router
+
+    /**
+     * @type {Route[]}
+     */
+    // @ts-ignore
     this.routes = router.options.routes
     this.pathMap = {}
     this.pathList = []
@@ -45,6 +65,7 @@ export default class EnhancedRouter {
     this.refreshAndCheckState(routes, parentPath)
     this.router.matcher = new VueRouter(
       this.normalizeOptions(this.router.options, { routes }, parentPath)
+      // @ts-ignore
     ).matcher
   }
 
@@ -114,8 +135,8 @@ export default class EnhancedRouter {
 
   /**
    * @description 递归刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
-   * @param {Array<Route>} newRoutes
-   * @param {String} parentPath
+   * @param {Array<Route>} routes
+   * @param {String} [parentPath]
    *  1. from method calls: addRoutes(routes, parentPath)
    *  2. from route property: { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
    */
