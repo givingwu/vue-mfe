@@ -24,8 +24,8 @@ const camelcase = require('camelcase')
 const WebpackRequireFrom = require('webpack-require-from')
 const WebpackManifest = require('./plugins/webpack-manifest-plugin')
 const WebpackArchiver = require('./plugins/webpack-archiver-plugin')
-const buildCMD = require('./lib/build')
-const uploadCMD = require('./lib/upload')
+const buildCMD = require('./commands/build')
+const uploadCMD = require('./commands/upload')
 const PLUGIN_NAME = require('./package.json').name
 
 /**
@@ -82,9 +82,9 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
       description: 'Package to .tgr.gz and upload to server',
       usage: 'vue-cli-service package [options]',
       options: {
-        '--upload-url': `specify package-server API url to upload bundled files`,
-        '--download-url': `specify package-server API url to download static files`,
-        '--disable-source-map': `disable source map. default: false`,
+        '--upload-url': 'specify package-server API url to upload bundled files',
+        '--download-url': 'specify package-server API url to download static files',
+        '--disable-source-map': 'disable source map. default: false',
         '--output-path': `specify the output path of bundled files? default: package => ${cwd}/package`
       }
     },
@@ -244,8 +244,8 @@ function getPortalEntry(api, isDev) {
       `[${PLUGIN_NAME}] we expect default entries like following ${entries},
     also support entry customization by 'vue.config.js => entry' property but
     it must be ${chalk.bgWhite(chalk.yellow('pure'))} & ${chalk.bgWhite(
-        chalk.green('no any side effects')
-      )}.`
+  chalk.green('no any side effects')
+)}.`
     )
   }
 

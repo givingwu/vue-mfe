@@ -8,7 +8,7 @@ const {
   done,
   info,
   logWithSpinner,
-  stopSpinner,
+  stopSpinner
 } = require('@vue/cli-shared-utils')
 
 module.exports = async function(args, file) {
@@ -24,7 +24,7 @@ module.exports = async function(args, file) {
       uploadUrl: url,
       downloadUrl: download,
       file,
-      fileSize,
+      fileSize
     })
   )
   log()
@@ -36,24 +36,26 @@ module.exports = async function(args, file) {
 
     formData.append('file', fs.createReadStream(file), {
       headers: { 'transfer-encoding': 'chunked' },
-      knownLength: fileSize,
+      knownLength: fileSize
     })
 
     formData.submit(url, (err, res) => {
       stopSpinner(false)
 
       if (err) {
-        chalk.red(`Publish module ${chalk.cyan(name)} failed`)
-        chalk.red(err)
+        log(chalk.red(`Publish module ${chalk.cyan(name)} failed`))
+        log(chalk.red(err))
         reject(err)
 
         process.exit(1)
       } else if (res.statusCode !== 200) {
-        chalk.red(`Publish module ${chalk.cyan(name)} failed`)
-        chalk.red(
-          `Remote server ${url} Status error. Code: ${chalk.red(
-            res.statusCode
-          )}, Body: ${chalk.red(res.statusMessage)}`
+        log(chalk.red(`Publish module ${chalk.cyan(name)} failed`))
+        log(
+          chalk.red(
+            `Remote server ${url} Status error. Code: ${chalk.red(
+              res.statusCode
+            )}, Body: ${chalk.red(res.statusMessage)}`
+          )
         )
 
         process.exit(1)
