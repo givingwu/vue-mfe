@@ -26,7 +26,7 @@ function WebpackArchiver(options) {
 
 WebpackArchiver.prototype.defaultOptions = {
   name: 'app' + '-' + Date.now(), // string
-  ext: '.tar', // .tar || .zip || Array<['.tar', '.zip']>
+  ext: '.tar' // .tar || .zip || Array<['.tar', '.zip']>
 }
 
 WebpackArchiver.prototype.apply = function(compiler) {
@@ -64,7 +64,7 @@ WebpackArchiver.prototype.execute = function() {
     if (!command.source || !command.destination) {
       if (command.verbose) {
         log(
-          'Warning - archive parameter has to be formated as follows: { source: <string>, destination: <string> }'
+          'Warning - Archive parameters must be formatted as follows: { source: <string>, destination: <string> }'
         )
       }
       reject()
@@ -113,12 +113,12 @@ WebpackArchiver.prototype.execute = function() {
         archive.glob(command.source, globOptions)
       } else if (sStats.isFile()) {
         archive.file(command.source, {
-          name: path.basename(command.source),
+          name: path.basename(command.source)
         })
       } else if (sStats.isDirectory()) {
         archive.glob('**/*', {
           cwd: command.source,
-          ignore: destFile,
+          ignore: destFile
         })
       }
 
