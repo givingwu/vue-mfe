@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.0
+  * vue-mfe v1.0.2
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -35,7 +35,8 @@ var getLogger = function (key) { return function (args) {
   return assert(
     isDev,
     // eslint-disable-next-line
-    function () { return hasConsole && console.log.apply(null, key ? [key ].concat( toArray(args)) : args); },
+    function () { return hasConsole &&
+      console.log.apply(null, key ? [key ].concat( toArray(args)) : args); },
     noop
   )
 }; };
@@ -55,13 +56,16 @@ var getWarning = function (key) { return function (args) {
 
 /**
  * @description resolve module whether ES Module or CommandJS module
- * @param {Module} module
- * @returns {any*}
+ * @template Module
+ * @property {Object} [default]
+ * @param {Module & Object} module
+ * @returns {*}
  */
-var resolveModule = function (module) { return ((module && module.default) || module); };
+var resolveModule = function (module) { return (module && module.default) || module; };
 
 /**
  * @description execute an array of promises serially
+ * @template T
  * @param {Array<Promise<T>>} promises
  * @returns {Promise<T>} the finally result of promises
  */
@@ -146,7 +150,6 @@ Observer.prototype.emit = function(eventName) {
 /**
  * @description lazy load style form a remote url then returns a promise
  * @param {String} url remote-url
- * @param {String} globalVar global variable key
  * @return {Promise}
  */
 function lazyloadStyle(url) {
@@ -165,7 +168,7 @@ function lazyloadStyle(url) {
       clearTimeout(timerId);
       link.onerror = link.onload = link.onreadystatechange = null; // 同时检查两种状态，只要有一种触发就删除事件处理器，避免触发两次
 
-      isError && link && link.remove();
+      isError && link && remove(link);
     }
 
     link.onload = function() {
@@ -206,7 +209,7 @@ function lazyLoadScript(url, globalVar) {
     function clearState() {
       clearTimeout(timerId);
       script.onerror = script.onload = script.onreadystatechange = null; // 同时检查两种状态，只要有一种触发就删除事件处理器，避免触发两次
-      script.remove();
+      remove(script);
     }
 
     function onLoadSuccess() {
@@ -248,10 +251,27 @@ function lazyLoadScript(url, globalVar) {
 }
 
 /**
+ * https://stackoverflow.com/questions/20428877/javascript-remove-doesnt-work-in-ie
+ * IE doesn't support remove() native Javascript function but does support removeChild().
+ * remove
+ * @param {HTMLElement} ele
+ */
+function remove(ele) {
+  if (ele && ele instanceof HTMLElement) {
+    if (typeof ele.remove === 'function') {
+      ele.remove();
+    } else {
+      ele.parentNode.removeChild(ele);
+    }
+  }
+}
+
+/**
  * @class Lazyloader
  * @description only focus on load resource from `config.getResource()`.
  */
 var Lazyloader = function Lazyloader() {
+  /** @type {{}} */
   this.cached = {};
 };
 
@@ -269,7 +289,7 @@ Lazyloader.prototype.load = function load (ref) {
 
   return this.getRouteEntry(name).then(function (url) {
     var resource = isFunction(url) ? url() : url;
-    Lazyloader.log('getRouteEntry resource', resource);
+    Lazyloader.log(("App " + name + " Resources"), resource);
 
     return isDev && isObject(resource) && !isArray(resource)
       ? resource /* if local import('url') */
@@ -291,15 +311,14 @@ Lazyloader.prototype.getRouteEntry = function getRouteEntry (name) {
     return Promise.resolve(this.getResource(name)).then(function (data) {
         if ( data === void 0 ) data = {};
 
-      // merge cached with data
       this$1.cached = Object.assign({}, this$1.cached, data);
 
       if (data[name]) {
         return data[name]
       } else {
-        Lazyloader.log('resources object', JSON.stringify(data));
+        Lazyloader.log('All Resources', JSON.stringify(data));
         Lazyloader.warn(
-          ("The '" + name + "' cannot be found in 'config.getResource()'")
+          ("The App '" + name + "' cannot be found in method 'config.getResource()'")
         );
       }
     })
@@ -309,7 +328,8 @@ Lazyloader.prototype.getRouteEntry = function getRouteEntry (name) {
 /**
  * installResources
  * @description install JS/CSS resources
- * @param {Array<URL> | URL} urls
+ * @typedef {string} Link
+ * @param {Array<Link>} urls
  * @param {string} name
  */
 Lazyloader.prototype.installResources = function installResources (urls, name) {
@@ -323,6 +343,7 @@ Lazyloader.prototype.installResources = function installResources (urls, name) {
 
   if (isArray(scripts) && scripts.length) {
     return serialExecute(
+      // @ts-ignore
       scripts.map(function (script) { return function () { return lazyLoadScript(script, name); }; })
     ).catch(function (error) {
       throw error
@@ -363,9 +384,10 @@ Lazyloader.prototype.setConfig = function setConfig (name, config) {
 
 /**
  * findRoute 深度优先递归遍历找到匹配 matchPath 的 Route
+ * @typedef {import('vue-router').RouteConfig} Route
  * @param {Array<Route>} routes
  * @param {String} matchPath
- * @returns {Object<Route>}
+ * @returns {Route}
  */
 function findRoute(routes, matchPath) {
   if ( routes === void 0 ) routes = [];
@@ -398,9 +420,9 @@ function findRoute(routes, matchPath) {
 
 /**
  * @description auto complete path with parent path
- * @param {String} path
- * @param {String} parentPath
- * @returns {String}
+ * @param {string} path
+ * @param {string} parentPath
+ * @returns {string}
  */
 function completePath(path, parentPath) {
   if (parentPath === '/' && path !== '/' && path.startsWith('/')) {
@@ -410,6 +432,10 @@ function completePath(path, parentPath) {
   }
 }
 
+/**
+ * ensurePathSlash
+ * @param {string} path
+ */
 function ensurePathSlash(path) {
   var trailingSlashRE = /\/?$/;
   path = path !== '/' ? path.replace(trailingSlashRE, '') : path;
@@ -417,6 +443,10 @@ function ensurePathSlash(path) {
   return path ? (ensureSlash(path) ? path : '/' + path) : '/'
 }
 
+/**
+ * ensureSlash
+ * @param {string} path
+ */
 function ensureSlash(path) {
   return path.charAt(0) === '/'
 }
@@ -433,6 +463,11 @@ var EnhancedRouter = function EnhancedRouter(router) {
   }
 
   this.router = router;
+
+  /**
+   * @type {Route[]}
+   */
+  // @ts-ignore
   this.routes = router.options.routes;
   this.pathMap = {};
   this.pathList = [];
@@ -465,6 +500,7 @@ EnhancedRouter.prototype.addRoutes = function addRoutes (routes, parentPath) {
   this.refreshAndCheckState(routes, parentPath);
   this.router.matcher = new VueRouter(
     this.normalizeOptions(this.router.options, { routes: routes }, parentPath)
+    // @ts-ignore
   ).matcher;
 };
 
@@ -538,8 +574,8 @@ EnhancedRouter.prototype.mergeRoutes = function mergeRoutes (oldRoutes, newRoute
 
 /**
  * @description 递归刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
- * @param {Array<Route>} newRoutes
- * @param {String} parentPath
+ * @param {Array<Route>} routes
+ * @param {String} [parentPath]
  *1. from method calls: addRoutes(routes, parentPath)
  *2. from route property: { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
  */
@@ -664,7 +700,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
   /**
    * @description To support a new Vue options `mfe` when Vue instantiation
    * see https://github.com/vuejs/vuex/blob/dev/src/mixin.js
-   * @param {*} Vue
+   * @param {import('vue').default} Vue
    */
   VueMfe.install = function install (Vue) {
     if (VueMfe.install.installed && _Vue === Vue) { return }
@@ -899,7 +935,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
   return VueMfe;
 }(Observer));
 
-VueMfe.version = '1.0.0';
+VueMfe.version = '1.0.2';
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,
