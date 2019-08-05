@@ -30,7 +30,7 @@ export default class VueMfe extends Observer {
   /**
    * @description To support a new Vue options `mfe` when Vue instantiation
    * see https://github.com/vuejs/vuex/blob/dev/src/mixin.js
-   * @param {*} Vue
+   * @param {import('vue').default} Vue
    */
   static install(Vue) {
     if (VueMfe.install.installed && _Vue === Vue) return
