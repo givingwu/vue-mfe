@@ -19,7 +19,7 @@ export function lazyloadStyle(url) {
       clearTimeout(timerId)
       link.onerror = link.onload = link.onreadystatechange = null // 同时检查两种状态，只要有一种触发就删除事件处理器，避免触发两次
 
-      isError && link && link.remove()
+      isError && link && remove(link)
     }
 
     link.onload = function() {
@@ -60,7 +60,7 @@ export function lazyLoadScript(url, globalVar) {
     function clearState() {
       clearTimeout(timerId)
       script.onerror = script.onload = script.onreadystatechange = null // 同时检查两种状态，只要有一种触发就删除事件处理器，避免触发两次
-      script.remove()
+      remove(script)
     }
 
     function onLoadSuccess() {
@@ -96,4 +96,20 @@ export function lazyLoadScript(url, globalVar) {
 
     document.body.appendChild(script)
   })
+}
+
+/**
+ * https://stackoverflow.com/questions/20428877/javascript-remove-doesnt-work-in-ie
+ * IE doesn't support remove() native Javascript function but does support removeChild().
+ * remove
+ * @param {HTMLElement} ele
+ */
+function remove(ele) {
+  if (ele && ele instanceof HTMLElement) {
+    if (typeof ele.remove === 'function') {
+      ele.remove()
+    } else {
+      ele.parentNode.removeChild(ele)
+    }
+  }
 }
