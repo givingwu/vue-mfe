@@ -5,7 +5,7 @@
   "main": "index.js",
   "files": [
     "generator",
-    "lib",
+    "commands",
     "plugins",
     "index.js",
     "prompts.js"
