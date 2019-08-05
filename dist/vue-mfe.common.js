@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.2
+  * vue-mfe v1.0.3
   * (c) 2019 Vuchan
   * @license MIT
   */

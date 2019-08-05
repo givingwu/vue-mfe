@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.2
+  * vue-mfe v1.0.3
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -935,7 +935,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
   return VueMfe;
 }(Observer));
 
-VueMfe.version = '1.0.2';
+VueMfe.version = '1.0.3';
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,

@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.2
+  * vue-mfe v1.0.3
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -906,7 +906,7 @@ class VueMfe extends Observer {
   }
 }
 
-VueMfe.version = '1.0.2';
+VueMfe.version = '1.0.3';
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,
