@@ -1,6 +1,6 @@
 {
   "name": "vue-mfe",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A micro-frontend implementation based on Vue.js.",
   "sideEffects": false,
   "main": "dist/vue-mfe.common.js",
