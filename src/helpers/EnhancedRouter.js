@@ -54,7 +54,7 @@ export default class EnhancedRouter {
    *  + [Dynamically add child routes to an existing route](https://github.com/vuejs/vue-router/issues/1156)
    *  + [Feature request: replace routes dynamically](https://github.com/vuejs/vue-router/issues/1234#issuecomment-357941465)
    * @param {Array<Route>} routes VueRoute route option
-   * @param {?String} parentPath
+   * @param {string} [parentPath]
    */
   addRoutes(routes, parentPath) {
     if (isDev) {
@@ -141,34 +141,45 @@ export default class EnhancedRouter {
    *  2. from route property: { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
    */
   refreshAndCheckState(routes, parentPath) {
-    routes.forEach(({ path, parentPath: selfParentPath, name, children }) => {
-      /* 优先匹配 route self parentPath */
-      if (selfParentPath) {
-        path = this.getParentPath(path, selfParentPath, name)
-      } else if (parentPath) {
-        path = this.getParentPath(path, parentPath, name)
-      }
+    routes.forEach(
+      ({
+        path,
+        parentPath: selfParentPath,
+        // support the meta parent path `{ meta: { parentPath: string } }`
+        meta: { parentPath: metaParentPath },
+        name,
+        children
+      }) => {
+        /* 优先匹配 route self parentPath */
+        if (selfParentPath) {
+          path = this.getParentPath(path, selfParentPath, name)
+        } else if (metaParentPath) {
+          path = this.getParentPath(path, metaParentPath, name)
+        } else if (parentPath) {
+          path = this.getParentPath(path, parentPath, name)
+        }
 
-      if (path) {
-        if (!this.pathExists(path)) {
-          this.pathList.push(path)
-        } else {
-          EnhancedRouter.warn(`The path ${path} in pathList has been existed`)
+        if (path) {
+          if (!this.pathExists(path)) {
+            this.pathList.push(path)
+          } else {
+            EnhancedRouter.warn(`The path ${path} in pathList has been existed`)
+          }
+        }
+
+        if (name) {
+          if (!this.nameExists(name)) {
+            this.pathMap[name] = path
+          } else {
+            EnhancedRouter.warn(`The name ${name} in pathMap has been existed`)
+          }
+        }
+
+        if (children && children.length) {
+          return this.refreshAndCheckState(children, path)
         }
       }
-
-      if (name) {
-        if (!this.nameExists(name)) {
-          this.pathMap[name] = path
-        } else {
-          EnhancedRouter.warn(`The name ${name} in pathMap has been existed`)
-        }
-      }
-
-      if (children && children.length) {
-        return this.refreshAndCheckState(children, path)
-      }
-    })
+    )
   }
 
   getParentPath(path, parentPath, name) {
