@@ -33,7 +33,8 @@ ___________
 
 ## API
 
-+ `mfe.js` 初始化 Vue-MFE:
++ `mfe.js` to initialize Vue-MFE
+
 ```js
 import Vue from 'vue'
 import VueMfe from 'vue-mfe';
@@ -43,10 +44,10 @@ Vue.use(VueMfe)
 
 export default new VueMfe({
   router,
-  ignoreCase: true, // 忽略路径大小写 '/AuTh/uSEr' => '/auth/user'
-  parentPath: '/', // 默认的 parentPath => router.addRoutes(routes, parentPath)
-  getNamespace: (name) => `__domain__app__${name}`, // 返回子 domain 的全局命名规则
-  getResource: () => { // 获取资源
+  ignoreCase: true, // To ignore path case '/AuTh/uSEr' => '/auth/user'
+  parentPath: '/', // The default parentPath when call `router.addRoutes(routes, parentPath)`
+  getNamespace: (name) => `__domain__app__${name}`, // Returns the global UND namespace of current domain app
+  getResource: () => { // To get resource from remote by this function
     if (process.env.NODE_ENV === 'development') {
       return {
         bar: () => import('../../../domain-app/bar/esm'),
@@ -62,7 +63,7 @@ export default new VueMfe({
 });
 ```
 
-+ `preinstall.js` 命名前缀预安装一个应用:
++ `preinstall.js` to preinstall a micro-app:
 ```js
 import mfe from './mfe'
 
@@ -99,7 +100,7 @@ import mfe from './mfe'
 import './preinstall'
 
 new Vue({
-  mfe, // 像 Vuex 一样传入应用
+  mfe, // pass `mfe` like vue-router
   router,
   created() {
     // event: when load micro-app start
