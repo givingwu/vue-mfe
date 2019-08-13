@@ -7,6 +7,7 @@ import {
   getLogger,
   resolveModule
 } from './utils'
+// @ts-ignore
 import VueRouter from 'vue-router'
 import Observer from './helpers/Observer'
 import Lazyloader from './helpers/Lazyloader'
@@ -30,10 +31,12 @@ export default class VueMfe extends Observer {
   /**
    * @description To support a new Vue options `mfe` when Vue instantiation
    * see https://github.com/vuejs/vuex/blob/dev/src/mixin.js
-   * @param {import('vue').default} Vue
+   * @param {import('vue').VueConstructor} Vue
    */
   static install(Vue) {
+    // @ts-ignore
     if (VueMfe.install.installed && _Vue === Vue) return
+    // @ts-ignore
     VueMfe.install.installed = true
 
     _Vue = Vue
@@ -66,6 +69,19 @@ export default class VueMfe extends Observer {
     }
   }
 
+  /**
+   * @typedef {import('vue-router').Route} VueRoute
+   * @typedef {Object} EnhancedRoute
+   * @property {string} parentPath
+   * @property {Route[]} children
+   * @typedef {VueRoute & EnhancedRoute} Route
+   *
+   * @typedef {import('vue-router').default} VueRouter
+   * @typedef {Object} EnhancedRouterRef
+   * @property {import('vue-router').RouteConfig} options
+   * @property {Object} matcher
+   * @typedef {VueRouter & EnhancedRouterRef} Router
+   */
   constructor(opts = {}) {
     super()
 
@@ -74,11 +90,15 @@ export default class VueMfe extends Observer {
     // this code should be placed here.
     if (
       /* eslint-disable-next-line no-undef */
+      // @ts-ignore
       !Vue &&
       typeof window !== 'undefined' &&
+      // @ts-ignore
       window.Vue &&
+      // @ts-ignore
       !VueMfe.install.installed
     ) {
+      // @ts-ignore
       VueMfe.install(window.Vue)
     }
 
@@ -101,7 +121,7 @@ export default class VueMfe extends Observer {
     this.helpers = new EnhancedRouter(this.router)
     this.lazyloader = new Lazyloader().setConfig(this.config)
 
-    this.router.beforeEach((to, from, next) => {
+    this.router.beforeEach(async (to, from, next) => {
       if (
         to.matched.length === 0 ||
         this.router.match(to.path).matched.length === 0
@@ -111,13 +131,14 @@ export default class VueMfe extends Observer {
 
         if (this.isInstalled(appName)) {
           const error = new Error(
-            `${appName} has been installed but it does not have path ${to.path}`
+            `${appName} has been installed but it has no any path ${to.path}`
           )
+          // @ts-ignore
           error.code = VueMfe.ERROR_CODE.LOAD_DUPLICATE_WITHOUT_PATH
 
           this.emit('error', error, args)
         } else {
-          this.installApp(args)
+          return this.installApp(args)
         }
       } else {
         next()
@@ -131,40 +152,52 @@ export default class VueMfe extends Observer {
     this.installedApps[name] = VueMfe.LOAD_STATUS.START
     this.emit('start', args)
 
-    return this.lazyloader
-      .load(args)
-      .then((module) => {
-        VueMfe.log('install App module', module)
+    const handleSuccess = (success) => {
+      VueMfe.log(`install app ${name} success`, success)
 
-        return this.installModule(module)
-      })
-      .then((success) => {
-        VueMfe.log(`install App ${name} success`, success)
+      if (success) {
+        this.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS
+        // After apply mini app routes, i must to force next(to)
+        // instead of next(). next() do nothing... bug???
+        next && to && next(to)
 
-        if (success) {
-          this.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS
+        this.emit('end', args)
+      }
+    }
 
-          // After apply mini app routes, i must to force next(to)
-          // instead of next(). next() do nothing... bug???
-          next && to && next(to)
-          this.emit('end', args)
-        }
-      })
-      .catch((error) => {
-        if (!(error instanceof Error)) error = new Error(error)
-        if (!error.code) error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED
-        this.installedApps[name] = VueMfe.LOAD_STATUS.FAILED
+    const handleError = (error) => {
+      if (!(error instanceof Error)) error = new Error(error)
+      if (!error.code) error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED
 
-        next && next(false) // stop navigating to next route
-        this.emit('error', error, args)
-      })
+      this.installedApps[name] = VueMfe.LOAD_STATUS.FAILED
+      next && next(false) // stop navigating to next route
+
+      this.emit('error', error, args) // error-first like node?! 😊
+    }
+
+    return this.loadAppEntry(args)
+      .then((module) => this.executeAppEntry(module))
+      .then((routes) => this.installAppModule(routes))
+      .then(handleSuccess)
+      .catch(handleError)
   }
 
   /**
-   * installModule
-   * @description install ESM/UMD app module
-   * @param {Module} module
-   * @example
+   * @param {string|{name: string}} name
+   * @returns {Promise<AppModule>}
+   */
+  loadAppEntry(name) {
+    return this.lazyloader.load(typeof name === 'string' ? { name } : name)
+  }
+
+  /**
+   * executeAppEntry
+   * @description To executes the ESM/UMD app module
+   * @typedef {import('vue').Component} VueComponent
+   * @typedef {(app: VueComponent)=>Promise<Route[]>|Route[]|{init: (app: VueComponent)=>Promise<boolean>, routes: Route[]}} AppModule
+   * @param {AppModule} module
+   * @returns {Promise<Route[]>}
+   * @summary
    *  1. module is a init function
    *    module: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
    *  2. module is an array of routes
@@ -172,54 +205,52 @@ export default class VueMfe extends Observer {
    *  3. module is an object with property 'init' and 'routes'
    *    module: { init: Function, routes: Array<Route> }
    */
-  installModule(module) {
+  executeAppEntry(module) {
     module = resolveModule(module)
 
-    const router = this.router
-    const app = router.app || {}
+    /** @type {VueComponent}  */
+    const app = this.router && this.router.app
 
-    // call init mini app (add routes mini app):
-    if (module) {
-      if (isFunction(module)) {
-        // routes: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
-        return Promise.resolve(module(app)).then((routesOrBool) => {
-          return this._checkRoutes(routesOrBool)
-        })
-      } else if (isArray(module)) {
-        // module: Array<Route>
-        return this.addRoutes(module)
-      } else if (isObject(module)) {
-        // module: { init: Promise<T>.then((success: boolean) => boolean), routes: Array<Route> }
-        return (
-          isFunction(module.init) &&
-          Promise.resolve(module.init(app)).then((bool) => {
-            return bool === false || bool instanceof Error
-              ? this._checkRoutes(bool)
-              : this.addRoutes(module.routes)
-          })
-        )
-      }
-    } else {
-      return false
+    if (isFunction(module)) {
+      // routes: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
+      // @ts-ignore
+      return Promise.resolve(module(app))
+    } else if (isArray(module)) {
+      // module: Array<Route>
+      // @ts-ignore
+      return module
+    } else if (isObject(module)) {
+      // module: { init: Promise<T>.then((success: boolean) => boolean), routes: Array<Route> }
+      // @ts-ignore
+      return isFunction(module.init) && Promise.resolve(module.init(app))
     }
   }
 
-  addRoutes(routes, parentPath) {
-    if (routes) {
+  /**
+   * @param {Route[]} routes
+   * @throws {Error}
+   */
+  installAppModule(routes) {
+    if (isArray(routes)) {
       if (routes.length) {
-        this.helpers.addRoutes(routes, parentPath || this.config.parentPath)
-
+        // @ts-ignore
+        this.helpers.addRoutes(routes, this.config.parentPath)
         return true
       } else {
-        VueMfe.warn('Routes has no any valid item')
+        VueMfe.warn('`Route[]` has no any valid item')
       }
-    } else {
-      VueMfe.warn(
-        'Must pass a valid "routes: Array<Route>" in "addRoutes" method'
-      )
-    }
 
-    return false
+      return false
+    } else {
+      let error = new Error(`Module ${name} initialize failed.`)
+      if (routes instanceof Error) error = routes
+
+      // @ts-ignore
+      error.code = VueMfe.ERROR_CODE.APP_INIT_FAILED
+      VueMfe.warn(error)
+
+      return false
+    }
   }
 
   isInstalled(route) {
@@ -238,6 +269,24 @@ export default class VueMfe extends Observer {
     return name && this.installApp({ name })
   }
 
+  _getChildrenApps(route) {
+    if (route && route.childrenApps) {
+      return [].concat(route.childrenApps)
+    } else {
+      return false
+    }
+  }
+
+  _installChildrenApps(route) {
+    const childrenApps = this._getChildrenApps(route)
+    const allPromises =
+      childrenApps && childrenApps.map((name) => this.installApp({ name }))
+
+    return Promise.all(allPromises).then((res) => {
+      return res.every(Boolean)
+    })
+  }
+
   /**
    * @description get the domain-app prefix name by current router and next route
    * @param {VueRoute} route
@@ -245,6 +294,7 @@ export default class VueMfe extends Observer {
    */
   _getPrefixName(route) {
     return (
+      // @ts-ignore
       route.domainName ||
       (route.name && route.name.includes('.')
         ? this._getPrefixNameByDelimiter(route.name, '.')
@@ -256,7 +306,7 @@ export default class VueMfe extends Observer {
     return (
       (this.config.ignoreCase ? str.toLowerCase() : str)
         .split(delimiter)
-        /* filter all params form router to get right name */
+        /* filter all params form route to get right name */
         .filter(
           (s) => !Object.values(this.router.currentRoute.params).includes(s)
         )
@@ -264,21 +314,6 @@ export default class VueMfe extends Observer {
         .map((s) => s.trim())
         .shift()
     )
-  }
-
-  _checkRoutes(routesOrBool) {
-    if (routesOrBool) {
-      return this.addRoutes(routesOrBool)
-    } else {
-      if (routesOrBool instanceof Error) {
-        routesOrBool.code = VueMfe.ERROR_CODE.APP_INIT_FAILED
-        throw routesOrBool
-      } else {
-        VueMfe.warn('Module ' + name + ' initialize failed.')
-      }
-    }
-
-    return false
   }
 }
 

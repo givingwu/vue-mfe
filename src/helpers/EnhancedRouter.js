@@ -1,5 +1,6 @@
+// @ts-ignore
 import VueRouter from 'vue-router'
-import { isDev, isString, isObject, getWarning } from '../utils'
+import { isDev, isString, isArray, isObject, getWarning } from '../utils'
 import { findRoute, completePath } from '../utils/route'
 
 /**
@@ -12,21 +13,23 @@ export default class EnhancedRouter {
   }
 
   /**
-   * @typedef {import('vue-router').Route} VueRoute
+   * @typedef {import('vue-router').RouteConfig} VueRoute
    * @typedef {Object} EnhancedRoute
-   * @property {string} parentPath
+   * @property {string} parentPath The nested parent path
+   * @property {string|Array<string>} childrenApps The nested children app name or names array
    * @property {Route[]} children
    * @typedef {VueRoute & EnhancedRoute} Route
    *
    * @typedef {import('vue-router').default} VueRouter
    * @typedef {Object} EnhancedRouterRef
-   * @property {import('vue-router').RouteConfig} options
+   * @property {import('vue-router').RouterOptions} options
    * @property {Object} matcher
    * @typedef {VueRouter & EnhancedRouterRef} Router
    *
    * @param {Router} router
    */
   constructor(router) {
+    // @override `VueRouter.prototype.addRoutes` method
     if (router.addRoutes !== this.addRoutes) {
       router.addRoutes = this.addRoutes.bind(this)
     }
@@ -53,32 +56,57 @@ export default class EnhancedRouter {
    * @see
    *  + [Dynamically add child routes to an existing route](https://github.com/vuejs/vue-router/issues/1156)
    *  + [Feature request: replace routes dynamically](https://github.com/vuejs/vue-router/issues/1234#issuecomment-357941465)
-   * @param {Array<Route>} routes VueRoute route option
+   * @param {Array<Route>} newRoutes VueRoute route option
    * @param {string} [parentPath]
+   * @param {Array<Route>} [oldRoutes]
    */
-  addRoutes(routes, parentPath) {
+  addRoutes(newRoutes, parentPath, oldRoutes) {
     if (isDev) {
       console.log(this.pathList)
       console.log(this.pathMap)
     }
 
-    this.refreshAndCheckState(routes, parentPath)
+    // before merge new routes we need to check them out does
+    // any path or name whether duplicate in old routes
+    this.refreshAndCheckState(newRoutes, parentPath)
+
+    // reset current router's matcher with merged routes
     this.router.matcher = new VueRouter(
-      this.normalizeOptions(this.router.options, { routes }, parentPath)
+      this.normalizeOptions(
+        // @ts-ignore
+        this.adaptRouterOptions(oldRoutes || this.router),
+        { routes: newRoutes },
+        parentPath
+      )
       // @ts-ignore
     ).matcher
   }
 
   /**
+   * @param {Route[]|Router} routesOrRouterOpts
+   */
+  adaptRouterOptions(routesOrRouterOpts) {
+    if (routesOrRouterOpts) {
+      if (routesOrRouterOpts instanceof VueRouter) {
+        return routesOrRouterOpts.options
+      } else if (isArray(routesOrRouterOpts)) {
+        return { routes: routesOrRouterOpts }
+      }
+    }
+
+    return {}
+  }
+
+  /**
    * @description normalize the options between oldRouter and newRouter with diff config options
-   * @param {Object} oldOpts oldRouter VueRouter configuration options
-   * @param {Object} newOpts newROuter VueRouter configuration options
-   * @param {?String} parentPath
+   * @param {Router["options"]} oldOpts oldRouter
+   * @param {Router["options"]} newOpts newROuter
+   * @param {string} [parentPath]
    * @returns {Object}
    */
   normalizeOptions(oldOpts, newOpts, parentPath) {
-    const { routes: oldRoutes, ...oldProps } = oldOpts
-    const { routes: newRoutes, ...newProps } = newOpts
+    const { routes: oldRoutes = [], ...oldProps } = oldOpts
+    const { routes: newRoutes = [], ...newProps } = newOpts
 
     return Object.assign(
       {
@@ -90,10 +118,10 @@ export default class EnhancedRouter {
   }
 
   /**
-   * @description before merge new routes we need to check it out does its path or name duplicate in old routes
+   * mergeRoutes
    * @param {Array<Route>} oldRoutes
    * @param {Array<Route>} newRoutes
-   * @param {?String} parentPath
+   * @param {string} [parentPath]
    * @returns {Array<Route>} oldRoutes
    */
   mergeRoutes(oldRoutes, newRoutes, parentPath) {
@@ -141,48 +169,37 @@ export default class EnhancedRouter {
    *  2. from route property: { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
    */
   refreshAndCheckState(routes, parentPath) {
-    routes.forEach(
-      ({
-        path,
-        parentPath: selfParentPath,
-        // support the meta parent path `{ meta: { parentPath: string } }`
-        meta: { parentPath: metaParentPath },
-        name,
-        children
-      }) => {
-        /* 优先匹配 route self parentPath */
-        if (selfParentPath) {
-          path = this.getParentPath(path, selfParentPath, name)
-        } else if (metaParentPath) {
-          path = this.getParentPath(path, metaParentPath, name)
-        } else if (parentPath) {
-          path = this.getParentPath(path, parentPath, name)
-        }
+    routes.forEach(({ path, parentPath: selfParentPath, name, children }) => {
+      /* 优先匹配 route self parentPath */
+      if (selfParentPath) {
+        path = this.genParentPath(path, selfParentPath, name)
+      } else if (parentPath) {
+        path = this.genParentPath(path, parentPath, name)
+      }
 
-        if (path) {
-          if (!this.pathExists(path)) {
-            this.pathList.push(path)
-          } else {
-            EnhancedRouter.warn(`The path ${path} in pathList has been existed`)
-          }
-        }
-
-        if (name) {
-          if (!this.nameExists(name)) {
-            this.pathMap[name] = path
-          } else {
-            EnhancedRouter.warn(`The name ${name} in pathMap has been existed`)
-          }
-        }
-
-        if (children && children.length) {
-          return this.refreshAndCheckState(children, path)
+      if (path) {
+        if (!this.pathExists(path)) {
+          this.pathList.push(path)
+        } else {
+          EnhancedRouter.warn(`The path ${path} in pathList has been existed`)
         }
       }
-    )
+
+      if (name) {
+        if (!this.nameExists(name)) {
+          this.pathMap[name] = path
+        } else {
+          EnhancedRouter.warn(`The name ${name} in pathMap has been existed`)
+        }
+      }
+
+      if (children && children.length) {
+        return this.refreshAndCheckState(children, path)
+      }
+    })
   }
 
-  getParentPath(path, parentPath, name) {
+  genParentPath(path, parentPath, name) {
     if (this.pathExists(parentPath)) {
       return (path = completePath(path, parentPath))
     } else {
@@ -203,9 +220,9 @@ export default class EnhancedRouter {
     return this.pathMap[name]
   }
 
-  findRoute(route) {
+  findRoute(routes, route) {
     let path = (isString(route) && route) || (isObject(route) && route.path)
-    return (path && findRoute(this.routes, path)) || null
+    return (path && findRoute(routes || this.routes, path)) || null
   }
 }
 

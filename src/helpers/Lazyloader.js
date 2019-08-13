@@ -33,7 +33,7 @@ export default class Lazyloader {
   load({ name }) {
     return this.getRouteEntry(name).then((url) => {
       const resource = isFunction(url) ? url() : url
-      Lazyloader.log(`App ${name} Resources`, resource)
+      Lazyloader.log(`start to load ${name} resources:`, resource)
 
       return isDev && isObject(resource) && !isArray(resource)
         ? resource /* if local import('url') */
@@ -56,7 +56,7 @@ export default class Lazyloader {
         if (data[name]) {
           return data[name]
         } else {
-          Lazyloader.log('All Resources', JSON.stringify(data))
+          Lazyloader.log('all resources', JSON.stringify(data))
           Lazyloader.warn(
             `The App '${name}' cannot be found in method 'config.getResource()'`
           )
