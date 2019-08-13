@@ -1,5 +1,5 @@
 /screenshots
-/__test__
+/plugins/__test__
 /node_modules
 .gitignore
 .npmrc

@@ -12,8 +12,7 @@
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "publish-lab": "npm version patch && npm publish --registry=http://172.16.0.132:18081/repository/npm-lab/ && npm run git-push",
-    "git-push": "git add . && git commit -m \"update: publish package\" && git push"
+    "publish-lab": "npm version patch && npm publish --registry=http://172.16.0.132:18081/repository/npm-lab/"
   },
   "keywords": [
     "mfe",

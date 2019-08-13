@@ -19,7 +19,7 @@
 
 const fs = require('fs')
 const path = require('path')
-const { chalk } = require('@vue/cli-shared-utils')
+const { chalk, stopSpinner, log } = require('@vue/cli-shared-utils')
 const camelcase = require('camelcase')
 const WebpackRequireFrom = require('webpack-require-from')
 const WebpackManifest = require('./plugins/webpack-manifest-plugin')
@@ -82,8 +82,10 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
       description: 'Package to .tgr.gz and upload to server',
       usage: 'vue-cli-service package [options]',
       options: {
-        '--upload-url': 'specify package-server API url to upload bundled files',
-        '--download-url': 'specify package-server API url to download static files',
+        '--upload-url':
+          'specify package-server API url to upload bundled files',
+        '--download-url':
+          'specify package-server API url to download static files',
         '--disable-source-map': 'disable source map. default: false',
         '--output-path': `specify the output path of bundled files? default: package => ${cwd}/package`
       }
@@ -189,7 +191,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
       })
 
       const cfg = api.resolveWebpackConfig()
-      console.log('webpack externals: ', JSON.stringify(cfg.externals))
+      log('webpack externals: ', JSON.stringify(cfg.externals))
 
       try {
         await buildCMD(args, api, options)
@@ -197,6 +199,9 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
           await uploadCMD(args, outputPath)
         })
       } catch (err) {
+        stopSpinner(false)
+        log(chalk.red(err))
+
         throw err
       }
     }
@@ -244,8 +249,8 @@ function getPortalEntry(api, isDev) {
       `[${PLUGIN_NAME}] we expect default entries like following ${entries},
     also support entry customization by 'vue.config.js => entry' property but
     it must be ${chalk.bgWhite(chalk.yellow('pure'))} & ${chalk.bgWhite(
-  chalk.green('no any side effects')
-)}.`
+        chalk.green('no any side effects')
+      )}.`
     )
   }
 
