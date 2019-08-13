@@ -70,10 +70,10 @@ export default class VueMfe extends Observer {
   }
 
   /**
-   * @typedef {import('vue-router').Route} VueRoute
+   * @typedef {import('vue-router').RouteConfig} VueRoute
    * @typedef {Object} EnhancedRoute
-   * @property {string} parentPath
-   * @property {Route[]} children
+   * @property {string} parentPath The nested parent path
+   * @property {string|Array<string>} childrenApps The nested children app name or names array
    * @typedef {VueRoute & EnhancedRoute} Route
    *
    * @typedef {import('vue-router').default} VueRouter

@@ -17,7 +17,6 @@ export default class EnhancedRouter {
    * @typedef {Object} EnhancedRoute
    * @property {string} parentPath The nested parent path
    * @property {string|Array<string>} childrenApps The nested children app name or names array
-   * @property {Route[]} children
    * @typedef {VueRoute & EnhancedRoute} Route
    *
    * @typedef {import('vue-router').default} VueRouter
