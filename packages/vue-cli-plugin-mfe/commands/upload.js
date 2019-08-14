@@ -1,7 +1,9 @@
+// @ts-nocheck
 'use strict'
 
 const fs = require('fs')
-const FormData = require('form-data')
+const request = require('request')
+// const FormData = require('form-data')
 const {
   chalk,
   log,
@@ -32,39 +34,53 @@ module.exports = async function(args, file) {
   return new Promise((resolve, reject) => {
     logWithSpinner(`start uploading ${name} to package-server ${url}...`)
 
-    const formData = new FormData({})
-
+    // https://github.com/form-data/form-data/issues/250
+    // https://github.com/form-data/form-data/issues/336#issuecomment-301252706
+    /* const formData = new FormData({})
     formData.append('file', fs.createReadStream(file), {
-      headers: { 'transfer-encoding': 'chunked' },
-      knownLength: fileSize
+      // headers: { 'transfer-encoding': 'chunked' },
+      filepath: file,
+      knownLength: fileSize,
     })
 
-    formData.submit(url, (err, res) => {
-      stopSpinner(false)
+    console.log(formData.getBoundary())
+    console.log(formData.getHeaders())
+    console.log(formData.getLengthSync()) */
 
-      if (err) {
+    return request
+      .post({
+        url,
+        formData: {
+          file: fs.createReadStream(file)
+        }
+      })
+      .on('error', (error) => {
+        stopSpinner(false)
         log(chalk.red(`Publish module ${chalk.cyan(name)} failed`))
-        log(chalk.red(err))
-        reject(err)
+        log(chalk.red(error))
 
-        process.exit(1)
-      } else if (res.statusCode !== 200) {
-        log(chalk.red(`Publish module ${chalk.cyan(name)} failed`))
-        log(
-          chalk.red(
-            `Remote server ${url} Status error. Code: ${chalk.red(
-              res.statusCode
-            )}, Body: ${chalk.red(res.statusMessage)}`
+        reject(error)
+      })
+      .on('complete', (res, body) => {
+        stopSpinner(false)
+
+        if (res.statusCode !== 200) {
+          log(chalk.red(`Publish module ${chalk.cyan(name)} failed`))
+          log(
+            chalk.red(
+              `Remote server ${url} status error. Code: ${chalk.red(
+                res.statusCode
+              )}, Body: ${chalk.red(JSON.stringify(body))}`
+            )
           )
-        )
 
-        process.exit(1)
-      } else {
-        done(`Upload module ${chalk.yellow(name)} complete.`)
-        info(`Checkout it out on package-server ${chalk.cyan(`${download}`)}`)
+          reject(body)
+        } else {
+          done(`Upload module ${chalk.yellow(name)} complete.`)
+          info(`Checkout it out on package-server ${chalk.cyan(`${download}`)}`)
 
-        resolve(res.resume())
-      }
-    })
+          resolve(res.resume())
+        }
+      })
   })
 }

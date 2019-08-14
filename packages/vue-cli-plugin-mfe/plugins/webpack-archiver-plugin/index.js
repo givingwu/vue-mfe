@@ -76,21 +76,21 @@ WebpackArchiver.prototype.execute = function() {
       var archive = archiver(command.format, command.options)
 
       archive.on('error', function(err) {
-        log('archive error')
+        // log('archive error')
         reject(err)
       })
 
       archive.on('warning', function(err) {
-        log('archive warning')
+        // log('archive warning')
         reject(err)
       })
 
       archive.on('finish', function() {
-        log('archive finish')
+        // log('archive finish')
       })
 
       archive.on('end', function() {
-        log('archive end')
+        // log('archive end')
       })
 
       archive.pipe(output)

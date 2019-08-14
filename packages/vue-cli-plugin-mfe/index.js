@@ -190,14 +190,19 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
         ].filter(Boolean)
       })
 
-      const cfg = api.resolveWebpackConfig()
-      log('webpack externals: ', JSON.stringify(cfg.externals))
+      /* const cfg = api.resolveWebpackConfig()
+      log('webpack externals: ', JSON.stringify(cfg.externals)) */
 
       try {
+        log()
+        log('build resource...')
+        log()
         await buildCMD(args, api, options)
-        setTimeout(async () => {
-          await uploadCMD(args, outputPath)
-        })
+
+        log()
+        log('upload files...')
+        log()
+        await uploadCMD(args, outputPath)
       } catch (err) {
         stopSpinner(false)
         log(chalk.red(err))
