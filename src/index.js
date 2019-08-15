@@ -189,6 +189,7 @@ export default class VueMfe extends Observer {
      */
     const handleError = (error) => {
       if (!(error instanceof Error)) error = new Error(error)
+      // @ts-ignore
       if (!error.code) error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED
 
       this.installedApps[name] = VueMfe.LOAD_STATUS.FAILED
@@ -268,7 +269,7 @@ export default class VueMfe extends Observer {
       if (routes instanceof Error) error = routes
 
       // @ts-ignore
-      error.code = VueMfe.ERROR_CODE.APP_INIT_FAILED
+      error.code = VueMfe.ERROR_CODE.LOAD_APP_INIT_FAILED
       VueMfe.warn(error)
 
       return false
@@ -347,5 +348,5 @@ VueMfe.LOAD_STATUS = {
 VueMfe.ERROR_CODE = {
   LOAD_ERROR_HAPPENED: VueMfe.LOAD_STATUS.FAILED,
   LOAD_DUPLICATE_WITHOUT_PATH: -2,
-  APP_INIT_FAILED: -3
+  LOAD_APP_INIT_FAILED: -3
 }
