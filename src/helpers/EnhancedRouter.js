@@ -42,6 +42,7 @@ export default class EnhancedRouter {
     this.routes = router.options.routes
     this.pathMap = {}
     this.pathList = []
+    this.appsMap = {}
 
     this._init()
   }
@@ -168,34 +169,48 @@ export default class EnhancedRouter {
    *  2. from route property: { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
    */
   refreshAndCheckState(routes, parentPath) {
-    routes.forEach(({ path, parentPath: selfParentPath, name, children }) => {
-      /* 优先匹配 route self parentPath */
-      if (selfParentPath) {
-        path = this.genParentPath(path, selfParentPath, name)
-      } else if (parentPath) {
-        path = this.genParentPath(path, parentPath, name)
-      }
+    routes.forEach(
+      ({ path, parentPath: selfParentPath, name, children, childrenApps }) => {
+        /* 优先匹配 route self parentPath */
+        if (selfParentPath) {
+          path = this.genParentPath(path, selfParentPath, name)
+        } else if (parentPath) {
+          path = this.genParentPath(path, parentPath, name)
+        }
 
-      if (path) {
-        if (!this.pathExists(path)) {
-          this.pathList.push(path)
-        } else {
-          EnhancedRouter.warn(`The path ${path} in pathList has been existed`)
+        if (path) {
+          if (!this.pathExists(path)) {
+            this.pathList.push(path)
+          } else {
+            EnhancedRouter.warn(`The path ${path} in pathList has been existed`)
+          }
+        }
+
+        if (name) {
+          if (!this.nameExists(name)) {
+            this.pathMap[name] = path
+          } else {
+            EnhancedRouter.warn(`The name ${name} in pathMap has been existed`)
+          }
+        }
+
+        // if childrenApps exists so records it with its fullPath
+        if (childrenApps) {
+          ;[].concat(childrenApps).forEach((app) => {
+            if (typeof app === 'object') {
+              const [appName, appPath] = Object.entries(app).shift()
+              this.appsMap[completePath(appPath, path)] = appName
+            } else {
+              this.appsMap[completePath(app, path)] = appName
+            }
+          })
+        }
+
+        if (children && children.length) {
+          return this.refreshAndCheckState(children, path)
         }
       }
-
-      if (name) {
-        if (!this.nameExists(name)) {
-          this.pathMap[name] = path
-        } else {
-          EnhancedRouter.warn(`The name ${name} in pathMap has been existed`)
-        }
-      }
-
-      if (children && children.length) {
-        return this.refreshAndCheckState(children, path)
-      }
-    })
+    )
   }
 
   genParentPath(path, parentPath, name) {
@@ -217,6 +232,16 @@ export default class EnhancedRouter {
 
   nameExists(name) {
     return this.pathMap[name]
+  }
+
+  getChildrenApps(path) {
+    const apps = this.appsMap[path]
+
+    if (apps) {
+      return [].concat(apps)
+    }
+
+    return null
   }
 
   findRoute(routes, route) {

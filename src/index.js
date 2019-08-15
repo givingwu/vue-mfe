@@ -113,15 +113,15 @@ export default class VueMfe extends Observer {
     this.router = router
     this.config = Object.assign({}, VueMfe.DEFAULTS, config)
     this.installedApps = {}
+    this.helpers = new EnhancedRouter(this.router)
+    this.lazyloader = new Lazyloader().setConfig(this.config)
 
     this._init()
   }
 
   _init() {
-    this.helpers = new EnhancedRouter(this.router)
-    this.lazyloader = new Lazyloader().setConfig(this.config)
-
-    this.router.beforeEach(async (to, from, next) => {
+    this.router.beforeEach((to, from, next) => {
+      // when none-matched path
       if (
         to.matched.length === 0 ||
         this.router.match(to.path).matched.length === 0
@@ -130,18 +130,26 @@ export default class VueMfe extends Observer {
         const args = { name: appName, to, from, next }
 
         if (this.isInstalled(appName)) {
-          const error = new Error(
-            `${appName} has been installed but it has no any path ${to.path}`
+          const childrenApps = this.helpers.getChildrenApps(
+            to.path || to.fullPath
           )
-          // @ts-ignore
-          error.code = VueMfe.ERROR_CODE.LOAD_DUPLICATE_WITHOUT_PATH
 
-          this.emit('error', error, args)
+          if (childrenApps && childrenApps.length) {
+            return this._installChildrenApps(childrenApps, args)
+          } else {
+            const error = new Error(
+              `${appName} has been installed but it has no any path ${to.path}`
+            )
+            // @ts-ignore
+            error.code = VueMfe.ERROR_CODE.LOAD_DUPLICATE_WITHOUT_PATH
+
+            this.emit('error', error, args)
+          }
         } else {
           return this.installApp(args)
         }
       } else {
-        next()
+        return next()
       }
     })
   }
@@ -149,9 +157,17 @@ export default class VueMfe extends Observer {
   installApp(args) {
     const { name, next, to } = args
 
+    if (this.isInstalled(name)) {
+      return true
+    }
+
     this.installedApps[name] = VueMfe.LOAD_STATUS.START
     this.emit('start', args)
 
+    /**
+     * handleSuccess
+     * @param {boolean} success
+     */
     const handleSuccess = (success) => {
       VueMfe.log(`install app ${name} success`, success)
 
@@ -163,8 +179,14 @@ export default class VueMfe extends Observer {
 
         this.emit('end', args)
       }
+
+      return success
     }
 
+    /**
+     * handleError
+     * @param {Error|string} error
+     */
     const handleError = (error) => {
       if (!(error instanceof Error)) error = new Error(error)
       if (!error.code) error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED
@@ -269,22 +291,16 @@ export default class VueMfe extends Observer {
     return name && this.installApp({ name })
   }
 
-  _getChildrenApps(route) {
-    if (route && route.childrenApps) {
-      return [].concat(route.childrenApps)
-    } else {
-      return false
-    }
-  }
+  _installChildrenApps(apps, { next, to }) {
+    const allPromises = apps.map((name) => this.installApp({ name }))
 
-  _installChildrenApps(route) {
-    const childrenApps = this._getChildrenApps(route)
-    const allPromises =
-      childrenApps && childrenApps.map((name) => this.installApp({ name }))
-
-    return Promise.all(allPromises).then((res) => {
-      return res.every(Boolean)
-    })
+    return Promise.all(allPromises)
+      .then((res) => {
+        return res.every(Boolean)
+      })
+      .then((success) => {
+        return success && next && to && next(to)
+      })
   }
 
   /**
