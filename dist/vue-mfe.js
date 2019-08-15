@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.3
+  * vue-mfe v1.0.4
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -295,7 +295,7 @@ Lazyloader.prototype.load = function load (ref) {
 
   return this.getRouteEntry(name).then(function (url) {
     var resource = isFunction(url) ? url() : url;
-    Lazyloader.log(("App " + name + " Resources"), resource);
+    Lazyloader.log(("start to load " + name + " resources:"), resource);
 
     return isDev && isObject(resource) && !isArray(resource)
       ? resource /* if local import('url') */
@@ -322,7 +322,7 @@ Lazyloader.prototype.getRouteEntry = function getRouteEntry (name) {
       if (data[name]) {
         return data[name]
       } else {
-        Lazyloader.log('All Resources', JSON.stringify(data));
+        Lazyloader.log('all resources', JSON.stringify(data));
         Lazyloader.warn(
           ("The App '" + name + "' cannot be found in method 'config.getResource()'")
         );
@@ -457,6 +457,7 @@ function ensureSlash(path) {
   return path.charAt(0) === '/'
 }
 
+// @ts-ignore
 function objectWithoutProperties (obj, exclude) { var target = {}; for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k) && exclude.indexOf(k) === -1) target[k] = obj[k]; return target; }
 
 /**
@@ -464,6 +465,7 @@ function objectWithoutProperties (obj, exclude) { var target = {}; for (var k in
  * @description Dynamically add child routes to an existing route & provides some `helpers` method
  */
 var EnhancedRouter = function EnhancedRouter(router) {
+  // @override `VueRouter.prototype.addRoutes` method
   if (router.addRoutes !== this.addRoutes) {
     router.addRoutes = this.addRoutes.bind(this);
   }
@@ -477,6 +479,7 @@ var EnhancedRouter = function EnhancedRouter(router) {
   this.routes = router.options.routes;
   this.pathMap = {};
   this.pathList = [];
+  this.appsMap = {};
 
   this._init();
 };
@@ -494,34 +497,59 @@ EnhancedRouter.prototype._init = function _init () {
  * @see
  *+ [Dynamically add child routes to an existing route](https://github.com/vuejs/vue-router/issues/1156)
  *+ [Feature request: replace routes dynamically](https://github.com/vuejs/vue-router/issues/1234#issuecomment-357941465)
- * @param {Array<Route>} routes VueRoute route option
- * @param {?String} parentPath
+ * @param {Array<Route>} newRoutes VueRoute route option
+ * @param {string} [parentPath]
+ * @param {Array<Route>} [oldRoutes]
  */
-EnhancedRouter.prototype.addRoutes = function addRoutes (routes, parentPath) {
+EnhancedRouter.prototype.addRoutes = function addRoutes (newRoutes, parentPath, oldRoutes) {
   if (isDev) {
     console.log(this.pathList);
     console.log(this.pathMap);
   }
 
-  this.refreshAndCheckState(routes, parentPath);
+  // before merge new routes we need to check them out does
+  // any path or name whether duplicate in old routes
+  this.refreshAndCheckState(newRoutes, parentPath);
+
+  // reset current router's matcher with merged routes
   this.router.matcher = new VueRouter(
-    this.normalizeOptions(this.router.options, { routes: routes }, parentPath)
+    this.normalizeOptions(
+      // @ts-ignore
+      this.adaptRouterOptions(oldRoutes || this.router),
+      { routes: newRoutes },
+      parentPath
+    )
     // @ts-ignore
   ).matcher;
 };
 
 /**
+ * @param {Route[]|Router} routesOrRouterOpts
+ */
+EnhancedRouter.prototype.adaptRouterOptions = function adaptRouterOptions (routesOrRouterOpts) {
+  if (routesOrRouterOpts) {
+    if (routesOrRouterOpts instanceof VueRouter) {
+      return routesOrRouterOpts.options
+    } else if (isArray(routesOrRouterOpts)) {
+      return { routes: routesOrRouterOpts }
+    }
+  }
+
+  return {}
+};
+
+/**
  * @description normalize the options between oldRouter and newRouter with diff config options
- * @param {Object} oldOpts oldRouter VueRouter configuration options
- * @param {Object} newOpts newROuter VueRouter configuration options
- * @param {?String} parentPath
+ * @param {Router["options"]} oldOpts oldRouter
+ * @param {Router["options"]} newOpts newROuter
+ * @param {string} [parentPath]
  * @returns {Object}
  */
 EnhancedRouter.prototype.normalizeOptions = function normalizeOptions (oldOpts, newOpts, parentPath) {
-  var oldRoutes = oldOpts.routes;
+  var oldRoutes = oldOpts.routes; if ( oldRoutes === void 0 ) oldRoutes = [];
     var rest = objectWithoutProperties( oldOpts, ["routes"] );
     var oldProps = rest;
-  var newRoutes = newOpts.routes;
+  var newRoutes = newOpts.routes; if ( newRoutes === void 0 ) newRoutes = [];
     var rest$1 = objectWithoutProperties( newOpts, ["routes"] );
     var newProps = rest$1;
 
@@ -535,10 +563,10 @@ EnhancedRouter.prototype.normalizeOptions = function normalizeOptions (oldOpts, 
 };
 
 /**
- * @description before merge new routes we need to check it out does its path or name duplicate in old routes
+ * mergeRoutes
  * @param {Array<Route>} oldRoutes
  * @param {Array<Route>} newRoutes
- * @param {?String} parentPath
+ * @param {string} [parentPath]
  * @returns {Array<Route>} oldRoutes
  */
 EnhancedRouter.prototype.mergeRoutes = function mergeRoutes (oldRoutes, newRoutes, parentPath) {
@@ -588,42 +616,59 @@ EnhancedRouter.prototype.mergeRoutes = function mergeRoutes (oldRoutes, newRoute
 EnhancedRouter.prototype.refreshAndCheckState = function refreshAndCheckState (routes, parentPath) {
     var this$1 = this;
 
-  routes.forEach(function (ref) {
-      var path = ref.path;
-      var selfParentPath = ref.parentPath;
-      var name = ref.name;
-      var children = ref.children;
+  routes.forEach(
+    function (ref) {
+        var path = ref.path;
+        var selfParentPath = ref.parentPath;
+        var name = ref.name;
+        var children = ref.children;
+        var childrenApps = ref.childrenApps;
 
-    /* 优先匹配 route self parentPath */
-    if (selfParentPath) {
-      path = this$1.getParentPath(path, selfParentPath, name);
-    } else if (parentPath) {
-      path = this$1.getParentPath(path, parentPath, name);
-    }
+      /* 优先匹配 route self parentPath */
+      if (selfParentPath) {
+        path = this$1.genParentPath(path, selfParentPath, name);
+      } else if (parentPath) {
+        path = this$1.genParentPath(path, parentPath, name);
+      }
 
-    if (path) {
-      if (!this$1.pathExists(path)) {
-        this$1.pathList.push(path);
-      } else {
-        EnhancedRouter.warn(("The path " + path + " in pathList has been existed"));
+      if (path) {
+        if (!this$1.pathExists(path)) {
+          this$1.pathList.push(path);
+        } else {
+          EnhancedRouter.warn(("The path " + path + " in pathList has been existed"));
+        }
+      }
+
+      if (name) {
+        if (!this$1.nameExists(name)) {
+          this$1.pathMap[name] = path;
+        } else {
+          EnhancedRouter.warn(("The name " + name + " in pathMap has been existed"));
+        }
+      }
+
+      // if childrenApps exists so records it with its fullPath
+      if (childrenApps) {
+[].concat(childrenApps).forEach(function (app) {
+          if (typeof app === 'object') {
+            var ref = Object.entries(app).shift();
+              var appName$1 = ref[0];
+              var appPath = ref[1];
+            this$1.appsMap[completePath(appPath, path)] = appName$1;
+          } else {
+            this$1.appsMap[completePath(app, path)] = appName;
+          }
+        });
+      }
+
+      if (children && children.length) {
+        return this$1.refreshAndCheckState(children, path)
       }
     }
-
-    if (name) {
-      if (!this$1.nameExists(name)) {
-        this$1.pathMap[name] = path;
-      } else {
-        EnhancedRouter.warn(("The name " + name + " in pathMap has been existed"));
-      }
-    }
-
-    if (children && children.length) {
-      return this$1.refreshAndCheckState(children, path)
-    }
-  });
+  );
 };
 
-EnhancedRouter.prototype.getParentPath = function getParentPath (path, parentPath, name) {
+EnhancedRouter.prototype.genParentPath = function genParentPath (path, parentPath, name) {
   if (this.pathExists(parentPath)) {
     return (path = completePath(path, parentPath))
   } else {
@@ -642,9 +687,19 @@ EnhancedRouter.prototype.nameExists = function nameExists (name) {
   return this.pathMap[name]
 };
 
-EnhancedRouter.prototype.findRoute = function findRoute$1 (route) {
+EnhancedRouter.prototype.getChildrenApps = function getChildrenApps (path) {
+  var apps = this.appsMap[path];
+
+  if (apps) {
+    return [].concat(apps)
+  }
+
+  return null
+};
+
+EnhancedRouter.prototype.findRoute = function findRoute$1 (routes, route) {
   var path = (isString(route) && route) || (isObject(route) && route.path);
-  return (path && findRoute(this.routes, path)) || null
+  return (path && findRoute(routes || this.routes, path)) || null
 };
 
 function objectWithoutProperties$1 (obj, exclude) { var target = {}; for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k) && exclude.indexOf(k) === -1) target[k] = obj[k]; return target; }
@@ -666,11 +721,15 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     // this code should be placed here.
     if (
       /* eslint-disable-next-line no-undef */
+      // @ts-ignore
       !Vue &&
       typeof window !== 'undefined' &&
+      // @ts-ignore
       window.Vue &&
+      // @ts-ignore
       !VueMfe.install.installed
     ) {
+      // @ts-ignore
       VueMfe.install(window.Vue);
     }
 
@@ -687,6 +746,8 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     this.router = router;
     this.config = Object.assign({}, VueMfe.DEFAULTS, config);
     this.installedApps = {};
+    this.helpers = new EnhancedRouter(this.router);
+    this.lazyloader = new Lazyloader().setConfig(this.config);
 
     this._init();
   }
@@ -706,10 +767,12 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
   /**
    * @description To support a new Vue options `mfe` when Vue instantiation
    * see https://github.com/vuejs/vuex/blob/dev/src/mixin.js
-   * @param {import('vue').default} Vue
+   * @param {import('vue').VueConstructor} Vue
    */
   VueMfe.install = function install (Vue) {
+    // @ts-ignore
     if (VueMfe.install.installed && _Vue === Vue) { return }
+    // @ts-ignore
     VueMfe.install.installed = true;
 
     _Vue = Vue;
@@ -747,10 +810,8 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
   VueMfe.prototype._init = function _init () {
     var this$1 = this;
 
-    this.helpers = new EnhancedRouter(this.router);
-    this.lazyloader = new Lazyloader().setConfig(this.config);
-
     this.router.beforeEach(function (to, from, next) {
+      // when none-matched path
       if (
         to.matched.length === 0 ||
         this$1.router.match(to.path).matched.length === 0
@@ -759,17 +820,26 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
         var args = { name: appName, to: to, from: from, next: next };
 
         if (this$1.isInstalled(appName)) {
-          var error = new Error(
-            (appName + " has been installed but it does not have path " + (to.path))
+          var childrenApps = this$1.helpers.getChildrenApps(
+            to.path || to.fullPath
           );
-          error.code = VueMfe.ERROR_CODE.LOAD_DUPLICATE_WITHOUT_PATH;
 
-          this$1.emit('error', error, args);
+          if (childrenApps && childrenApps.length) {
+            return this$1._installChildrenApps(childrenApps, args)
+          } else {
+            var error = new Error(
+              (appName + " has been installed but it has no any path " + (to.path))
+            );
+            // @ts-ignore
+            error.code = VueMfe.ERROR_CODE.LOAD_DUPLICATE_WITHOUT_PATH;
+
+            this$1.emit('error', error, args);
+          }
         } else {
-          this$1.installApp(args);
+          return this$1.installApp(args)
         }
       } else {
-        next();
+        return next()
       }
     });
   };
@@ -781,43 +851,69 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     var next = args.next;
     var to = args.to;
 
+    if (this.isInstalled(name)) {
+      return true
+    }
+
     this.installedApps[name] = VueMfe.LOAD_STATUS.START;
     this.emit('start', args);
 
-    return this.lazyloader
-      .load(args)
-      .then(function (module) {
-        VueMfe.log('install App module', module);
+    /**
+     * handleSuccess
+     * @param {boolean} success
+     */
+    var handleSuccess = function (success) {
+      VueMfe.log(("install app " + name + " success"), success);
 
-        return this$1.installModule(module)
-      })
-      .then(function (success) {
-        VueMfe.log(("install App " + name + " success"), success);
+      if (success) {
+        this$1.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS;
+        // After apply mini app routes, i must to force next(to)
+        // instead of next(). next() do nothing... bug???
+        next && to && next(to);
 
-        if (success) {
-          this$1.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS;
+        this$1.emit('end', args);
+      }
 
-          // After apply mini app routes, i must to force next(to)
-          // instead of next(). next() do nothing... bug???
-          next && to && next(to);
-          this$1.emit('end', args);
-        }
-      })
-      .catch(function (error) {
-        if (!(error instanceof Error)) { error = new Error(error); }
-        if (!error.code) { error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED; }
-        this$1.installedApps[name] = VueMfe.LOAD_STATUS.FAILED;
+      return success
+    };
 
-        next && next(false); // stop navigating to next route
-        this$1.emit('error', error, args);
-      })
+    /**
+     * handleError
+     * @param {Error|string} error
+     */
+    var handleError = function (error) {
+      if (!(error instanceof Error)) { error = new Error(error); }
+      if (!error.code) { error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED; }
+
+      this$1.installedApps[name] = VueMfe.LOAD_STATUS.FAILED;
+      next && next(false); // stop navigating to next route
+
+      this$1.emit('error', error, args); // error-first like node?! 😊
+    };
+
+    return this.loadAppEntry(args)
+      .then(function (module) { return this$1.executeAppEntry(module); })
+      .then(function (routes) { return this$1.installAppModule(routes); })
+      .then(handleSuccess)
+      .catch(handleError)
   };
 
   /**
-   * installModule
-   * @description install ESM/UMD app module
-   * @param {Module} module
-   * @example
+   * @param {string|{name: string}} name
+   * @returns {Promise<AppModule>}
+   */
+  VueMfe.prototype.loadAppEntry = function loadAppEntry (name) {
+    return this.lazyloader.load(typeof name === 'string' ? { name: name } : name)
+  };
+
+  /**
+   * executeAppEntry
+   * @description To executes the ESM/UMD app module
+   * @typedef {import('vue').Component} VueComponent
+   * @typedef {(app: VueComponent)=>Promise<Route[]>|Route[]|{init: (app: VueComponent)=>Promise<boolean>, routes: Route[]}} AppModule
+   * @param {AppModule} module
+   * @returns {Promise<Route[]>}
+   * @summary
    *  1. module is a init function
    *    module: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
    *  2. module is an array of routes
@@ -825,56 +921,52 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
    *  3. module is an object with property 'init' and 'routes'
    *    module: { init: Function, routes: Array<Route> }
    */
-  VueMfe.prototype.installModule = function installModule (module) {
-    var this$1 = this;
-
+  VueMfe.prototype.executeAppEntry = function executeAppEntry (module) {
     module = resolveModule(module);
 
-    var router = this.router;
-    var app = router.app || {};
+    /** @type {VueComponent}  */
+    var app = this.router && this.router.app;
 
-    // call init mini app (add routes mini app):
-    if (module) {
-      if (isFunction(module)) {
-        // routes: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
-        return Promise.resolve(module(app)).then(function (routesOrBool) {
-          return this$1._checkRoutes(routesOrBool)
-        })
-      } else if (isArray(module)) {
-        // module: Array<Route>
-        return this.addRoutes(module)
-      } else if (isObject(module)) {
-        // module: { init: Promise<T>.then((success: boolean) => boolean), routes: Array<Route> }
-        return (
-          isFunction(module.init) &&
-          Promise.resolve(module.init(app)).then(function (bool) {
-            return bool === false || bool instanceof Error
-              ? this$1._checkRoutes(bool)
-              : this$1.addRoutes(module.routes)
-          })
-        )
-      }
-    } else {
-      return false
+    if (isFunction(module)) {
+      // routes: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
+      // @ts-ignore
+      return Promise.resolve(module(app))
+    } else if (isArray(module)) {
+      // module: Array<Route>
+      // @ts-ignore
+      return module
+    } else if (isObject(module)) {
+      // module: { init: Promise<T>.then((success: boolean) => boolean), routes: Array<Route> }
+      // @ts-ignore
+      return isFunction(module.init) && Promise.resolve(module.init(app))
     }
   };
 
-  VueMfe.prototype.addRoutes = function addRoutes (routes, parentPath) {
-    if (routes) {
+  /**
+   * @param {Route[]} routes
+   * @throws {Error}
+   */
+  VueMfe.prototype.installAppModule = function installAppModule (routes) {
+    if (isArray(routes)) {
       if (routes.length) {
-        this.helpers.addRoutes(routes, parentPath || this.config.parentPath);
-
+        // @ts-ignore
+        this.helpers.addRoutes(routes, this.config.parentPath);
         return true
       } else {
-        VueMfe.warn('Routes has no any valid item');
+        VueMfe.warn('`Route[]` has no any valid item');
       }
-    } else {
-      VueMfe.warn(
-        'Must pass a valid "routes: Array<Route>" in "addRoutes" method'
-      );
-    }
 
-    return false
+      return false
+    } else {
+      var error = new Error(("Module " + name + " initialize failed."));
+      if (routes instanceof Error) { error = routes; }
+
+      // @ts-ignore
+      error.code = VueMfe.ERROR_CODE.APP_INIT_FAILED;
+      VueMfe.warn(error);
+
+      return false
+    }
   };
 
   VueMfe.prototype.isInstalled = function isInstalled (route) {
@@ -893,6 +985,22 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     return name && this.installApp({ name: name })
   };
 
+  VueMfe.prototype._installChildrenApps = function _installChildrenApps (apps, ref) {
+    var this$1 = this;
+    var next = ref.next;
+    var to = ref.to;
+
+    var allPromises = apps.map(function (name) { return this$1.installApp({ name: name }); });
+
+    return Promise.all(allPromises)
+      .then(function (res) {
+        return res.every(Boolean)
+      })
+      .then(function (success) {
+        return success && next && to && next(to)
+      })
+  };
+
   /**
    * @description get the domain-app prefix name by current router and next route
    * @param {VueRoute} route
@@ -900,6 +1008,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
    */
   VueMfe.prototype._getPrefixName = function _getPrefixName (route) {
     return (
+      // @ts-ignore
       route.domainName ||
       (route.name && route.name.includes('.')
         ? this._getPrefixNameByDelimiter(route.name, '.')
@@ -913,7 +1022,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     return (
       (this.config.ignoreCase ? str.toLowerCase() : str)
         .split(delimiter)
-        /* filter all params form router to get right name */
+        /* filter all params form route to get right name */
         .filter(
           function (s) { return !Object.values(this$1.router.currentRoute.params).includes(s); }
         )
@@ -923,25 +1032,10 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     )
   };
 
-  VueMfe.prototype._checkRoutes = function _checkRoutes (routesOrBool) {
-    if (routesOrBool) {
-      return this.addRoutes(routesOrBool)
-    } else {
-      if (routesOrBool instanceof Error) {
-        routesOrBool.code = VueMfe.ERROR_CODE.APP_INIT_FAILED;
-        throw routesOrBool
-      } else {
-        VueMfe.warn('Module ' + name + ' initialize failed.');
-      }
-    }
-
-    return false
-  };
-
   return VueMfe;
 }(Observer));
 
-VueMfe.version = '1.0.3';
+VueMfe.version = '1.0.4';
 VueMfe.DEFAULTS = {
   ignoreCase: true,
   parentPath: null,
