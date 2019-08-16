@@ -72,7 +72,8 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
     output: 'package',
     upload: true,
     json: true,
-    disableSourceMap: false
+    disableSourceMap: false,
+    clearConsole: false
   }
 
   /* see #usage.2 Add a new cli-service command */
@@ -87,7 +88,8 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
         '--download-url':
           'specify package-server API url to download static files',
         '--disable-source-map': 'disable source map. default: false',
-        '--output-path': `specify the output path of bundled files? default: package => ${cwd}/package`
+        '--output-path': `specify the output path of bundled files? default: package => ${cwd}/package`,
+        '--clear-console': `clear all 'console' & 'debugger' in source code. default: false`
       }
     },
     async (args) => {
@@ -188,6 +190,27 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
             format: 'tar'
           })
         ].filter(Boolean)
+      })
+
+      /*
+       * https://github.com/terser-js/terser#minify-options
+       * https://github.com/vuejs/vue-cli/blob/dev/packages/%40vue/cli-service/lib/config/terserOptions.js
+       */
+      api.configureWebpack((config) => {
+        if (
+          process.env.NODE_ENV === 'production' &&
+          !process.env.VUE_CLI_TEST // https://github.com/vuejs/vue-cli/blob/dev/packages/%40vue/cli-service/lib/config/prod.js#L17
+        ) {
+          const terser =
+            config.optimization.minimizer && config.optimization.minimizer[0]
+
+          terser &&
+            (terser.options.terserOptions.compress = {
+              ...terser.options.terserOptions.compress,
+              drop_console: args.clearConsole,
+              drop_debugger: args.clearConsole
+            })
+        }
       })
 
       /* const cfg = api.resolveWebpackConfig()
