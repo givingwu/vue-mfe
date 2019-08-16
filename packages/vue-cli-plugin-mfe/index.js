@@ -17,16 +17,15 @@
  *  2. An object containing project local options specified in `vue.config.js`, or in the `vue` field in package.json.
  */
 
-const fs = require('fs')
 const path = require('path')
-const { chalk, stopSpinner, log } = require('@vue/cli-shared-utils')
 const camelcase = require('camelcase')
+const { chalk, stopSpinner, log } = require('@vue/cli-shared-utils')
 const WebpackRequireFrom = require('webpack-require-from')
+const { getPortalEntry, normalizeKey } = require('./helpers/index')
 const WebpackManifest = require('./plugins/webpack-manifest-plugin')
 const WebpackArchiver = require('./plugins/webpack-archiver-plugin')
 const buildCMD = require('./commands/build')
 const uploadCMD = require('./commands/upload')
-const PLUGIN_NAME = require('./package.json').name
 
 /**
  * https://cli.vuejs.org/zh/dev-guide/plugin-dev.html#service-%E6%8F%92%E4%BB%B6
@@ -43,6 +42,13 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
 
   const PACKAGE_VERSION = packageJSON.version
   const PACKAGE_NAME = domainRoutePrefix || packageJSON.name
+  const moduleName = packageJSON.moduleName
+
+  if (!moduleName) {
+    throw new Error(
+      '自 vue-cli-plugin-mfe@1.1.0 起要求在当前项目的 package.json 中写入新字段 `{ moduleName: "项目中文名称" }` 以使 LTE 能更友好的提示用户更新该应用'
+    )
+  }
 
   const masterRuntimeModule =
     useMasterRuntime && api.resolve(`./node_modules/${masterRuntimeName}`)
@@ -73,7 +79,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
     upload: true,
     json: true,
     disableSourceMap: false,
-    clearConsole: false
+    disableConsole: false
   }
 
   /* see #usage.2 Add a new cli-service command */
@@ -89,7 +95,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
           'specify package-server API url to download static files',
         '--disable-source-map': 'disable source map. default: false',
         '--output-path': `specify the output path of bundled files? default: package => ${cwd}/package`,
-        '--clear-console': `clear all 'console' & 'debugger' in source code. default: false`
+        '--disable-console-log': `disable all 'console' & 'debugger' in source code when PROD env. default: false`
       }
     },
     async (args) => {
@@ -199,6 +205,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
       api.configureWebpack((config) => {
         if (
           process.env.NODE_ENV === 'production' &&
+          args.disableConsoleLog &&
           !process.env.VUE_CLI_TEST // https://github.com/vuejs/vue-cli/blob/dev/packages/%40vue/cli-service/lib/config/prod.js#L17
         ) {
           const terser =
@@ -207,8 +214,8 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
           terser &&
             (terser.options.terserOptions.compress = {
               ...terser.options.terserOptions.compress,
-              drop_console: args.clearConsole,
-              drop_debugger: args.clearConsole
+              drop_console: args.disableConsoleLog,
+              drop_debugger: args.disableConsoleLog
             })
         }
       })
@@ -225,7 +232,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
         log()
         log('upload files...')
         log()
-        await uploadCMD(args, outputPath)
+        await uploadCMD(args, outputPath, moduleName)
       } catch (err) {
         stopSpinner(false)
         log(chalk.red(err))
@@ -239,59 +246,4 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
 /* see #usage.4 Specifying Mode for Commands */
 module.exports.defaultModes = {
   package: 'production'
-}
-
-function checkExistEntries(api, paths) {
-  if (typeof paths === 'string') paths = [paths]
-
-  let i = 0
-  let l = paths.length
-
-  while (i < l) {
-    const path = api.resolve(paths[i])
-
-    if (fs.existsSync(path)) {
-      return path
-    }
-
-    i++
-  }
-}
-
-function getPortalEntry(api, isDev) {
-  isDev = isDev || process.env.NODE_ENV === 'development'
-  const mainEntry = './src/main.js'
-  const portalEntry = './src/portal.entry.js'
-
-  /* 如果启用了 master-runtime 则在开发环境使用 master-runtime 作为入口 */
-  const entry = checkExistEntries(api, [
-    portalEntry,
-    './src/router/routes.js',
-    './src/routes.js',
-    mainEntry
-  ]) /* 否则，使用 路由 文件 */
-
-  /* 如果是产品环境 build，且未匹配到指定的 entry 文件 */
-  if (!isDev && !entry) {
-    console.warn(
-      `[${PLUGIN_NAME}] we expect default entries like following ${entries},
-    also support entry customization by 'vue.config.js => entry' property but
-    it must be ${chalk.bgWhite(chalk.yellow('pure'))} & ${chalk.bgWhite(
-        chalk.green('no any side effects')
-      )}.`
-    )
-  }
-
-  return entry
-}
-
-function normalizeKey(args) {
-  for (let key in args) {
-    if (key.indexOf('-') >= 0) {
-      let val = args[key]
-      args[camelcase(key)] = val
-
-      delete args[key]
-    }
-  }
 }

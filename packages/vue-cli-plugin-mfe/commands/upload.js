@@ -13,7 +13,7 @@ const {
   stopSpinner
 } = require('@vue/cli-shared-utils')
 
-module.exports = async function(args, file) {
+module.exports = async function(args, file, moduleName) {
   const name = args.name
   const url = args.uploadUrl
   const download = args.downloadUrl || args.uploadUrl
@@ -23,6 +23,7 @@ module.exports = async function(args, file) {
   log(
     JSON.stringify({
       name,
+      moduleName,
       uploadUrl: url,
       downloadUrl: download,
       file,
@@ -51,7 +52,8 @@ module.exports = async function(args, file) {
       .post({
         url,
         formData: {
-          file: fs.createReadStream(file)
+          file: fs.createReadStream(file),
+          moduleName
         }
       })
       .on('error', (error) => {
