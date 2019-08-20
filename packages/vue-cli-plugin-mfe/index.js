@@ -101,7 +101,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
         '--disable-source-map': 'disable source map. default: false',
         // '--output-path': `specify the output path of bundled files? default: package => ${cwd}/package`,
         '--disable-console-log':
-          'disable all \'console\' & \'debugger\' in source code when PROD env. default: false'
+          "disable all 'console' & 'debugger' in source code when PROD env. default: false"
       }
     },
     async (args) => {
@@ -280,7 +280,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
 
         if (!packagePath) {
           throw new Error(
-            'Cannot found any file match the RegExp \'/^w(-?w?)*@(d.?){3}-?d{13}.tar(.gz)?$/\''
+            "Cannot found any file match the RegExp '/^w(-?w?)*@(d.?){3}-?d{13}.tar(.gz)?$/'"
           )
         }
 

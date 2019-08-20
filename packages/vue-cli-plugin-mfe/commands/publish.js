@@ -9,34 +9,37 @@ const {
   done,
   info,
   logWithSpinner,
-  stopSpinner,
+  stopSpinner
 } = require('@vue/cli-shared-utils')
 
 module.exports = async function(args) {
   const name = args.name
   const publishUrl = args.publishUrl
-  const [url, ...querystring] = publishUrl.split('?')
+  const arr = publishUrl.split('?')
+  let url = arr[0]
+  const querystring = arr.slice(1).join('')
   let data = qs.parse(querystring)
 
   if (!data || !data.moduleCode || typeof data.moduleCode !== 'string') {
     if (typeof data === 'object') {
       data = {
         ...data,
-        moduleCode: name,
+        moduleCode: name
       }
     } else {
       data = { moduleCode: name }
     }
+
+    url += '?' + qs.stringify(data)
+  } else {
+    url = publishUrl
   }
 
   return new Promise((resolve, reject) => {
     logWithSpinner(`start publishing app ${name}...`)
 
     return request
-      .get({
-        url,
-        data,
-      })
+      .get(url)
       .on('error', (error) => {
         stopSpinner(false)
         log(chalk.red(`Publish module ${chalk.cyan(name)} failed`))
