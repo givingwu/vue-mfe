@@ -1,3 +1,4 @@
+// @ts-nocheck
 const fs = require('fs')
 const camelcase = require('camelcase')
 const { chalk, log } = require('@vue/cli-shared-utils')
@@ -37,25 +38,40 @@ exports.getPortalEntry = function getPortalEntry(api, isDev) {
   if (!isDev && !entry) {
     log(
       `[${PLUGIN_NAME}] we expect default entries like following ${JSON.stringify(
-        entries
+        entry
       )},
     also support entry customization by 'vue.config.js => entry' property but
     it must be ${chalk.bgWhite(chalk.yellow('pure'))} & ${chalk.bgWhite(
-        chalk.green('no any side effects')
-      )}.`
+  chalk.green('no any side effects')
+)}.`
     )
   }
 
   return entry
 }
 
-exports.normalizeKey = function normalizeKey(args) {
+exports.normalizeKey = function normalizeKey(
+  args = {},
+  defaults = {},
+  shared = {}
+) {
+  // 移除带有 - 的 key
   for (let key in args) {
     if (key.indexOf('-') >= 0) {
       let val = args[key]
-      args[camelcase(key)] = val
 
+      args[camelcase(key)] = val
       delete args[key]
+    }
+  }
+
+  // 填充 defaults 的 key
+  for (let key in defaults) {
+    if (args[key] == null) {
+      // 默认先取 shared 在内存中的值，如果不存在则取 defaults
+      args[key] = shared[key] || defaults[key]
+    } else {
+      shared[key] = args[key]
     }
   }
 }

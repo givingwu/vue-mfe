@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * # Service
  * https://cli.vuejs.org/dev-guide/plugin-dev.html#service-plugin
@@ -6,17 +7,18 @@
  * + # entry
  *  1. Service plugins are loaded automatically when a Service instance is created.
  *
- * + #usage
+ * + # usage
  *  1. see [Modifying webpack config](https://cli.vuejs.org/dev-guide/plugin-dev.html#modifying-webpack-config)
  *  2. see [Add a new cli-service command](https://cli.vuejs.org/dev-guide/plugin-dev.html#add-a-new-cli-service-command)
  *  3. see [Modifying existing cli-service command](https://cli.vuejs.org/dev-guide/plugin-dev.html#modifying-existing-cli-service-command)
  *  4. see [Specifying Mode for Commands](https://cli.vuejs.org/dev-guide/plugin-dev.html#specifying-mode-for-commands)
  *
- * + #params
+ * + # params
  *  1. A [PluginAPI](https://cli.vuejs.org/dev-guide/plugin-api.html#plugin-api) instance
  *  2. An object containing project local options specified in `vue.config.js`, or in the `vue` field in package.json.
  */
 
+const fs = require('fs')
 const path = require('path')
 const camelcase = require('camelcase')
 const { chalk, stopSpinner, log } = require('@vue/cli-shared-utils')
@@ -26,12 +28,13 @@ const WebpackManifest = require('./plugins/webpack-manifest-plugin')
 const WebpackArchiver = require('./plugins/webpack-archiver-plugin')
 const buildCMD = require('./commands/build')
 const uploadCMD = require('./commands/upload')
+const publishCMD = require('./commands/publish')
 
 /**
  * https://cli.vuejs.org/zh/dev-guide/plugin-dev.html#service-%E6%8F%92%E4%BB%B6
  */
 module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
-  const cwd = api.getCwd()
+  // const cwd = api.getCwd()
   const packageJSON = require(api.resolve('./package.json'))
   const PORTAL_CONFIG = packageJSON['portal-config']
   const {
@@ -67,13 +70,17 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
     })
   }
 
+  const shared = {}
   const defaults = {
     uploadUrl:
-      process.env.PUBLISH_HOST ||
-      'http://192.168.1.2:3010/api/mfe/fileupload/uploadTar',
+      process.env.UPLOAD_URL ||
+      'http://ibuildqctest.yzw.cn:8010/api/mfe/fileupload/uploadTar',
     downloadUrl:
-      process.env.DOWNLOAD_HOST ||
-      'http://192.168.1.2:3010/api/mfe/download/resources/',
+      process.env.DOWNLOAD_URL ||
+      'http://ibuildqctest.yzw.cn:8010/api/mfe/download/resources',
+    publishUrl:
+      process.env.PUBLISH_URL ||
+      'http://ibuildqctest.yzw.cn:8010/api/mfe/application/publish',
     name: PACKAGE_NAME,
     output: 'package',
     upload: true,
@@ -86,28 +93,19 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
   api.registerCommand(
     'package',
     {
-      description: 'Package to .tgr.gz and upload to server',
+      description: 'build the source code to .tgr.gz bundle',
       usage: 'vue-cli-service package [options]',
       options: {
-        '--upload-url':
-          'specify package-server API url to upload bundled files',
         '--download-url':
           'specify package-server API url to download static files',
         '--disable-source-map': 'disable source map. default: false',
-        '--output-path': `specify the output path of bundled files? default: package => ${cwd}/package`,
-        '--disable-console-log': `disable all 'console' & 'debugger' in source code when PROD env. default: false`
+        // '--output-path': `specify the output path of bundled files? default: package => ${cwd}/package`,
+        '--disable-console-log':
+          'disable all \'console\' & \'debugger\' in source code when PROD env. default: false'
       }
     },
     async (args) => {
-      normalizeKey(args)
-
-      for (let key in defaults) {
-        key = camelcase(key)
-
-        if (args[key] == null) {
-          args[key] = defaults[key]
-        }
-      }
+      normalizeKey(args, defaults, shared)
 
       if (args.downloadUrl && args.downloadUrl.slice(-1) !== '/') {
         args.downloadUrl += '/'
@@ -129,7 +127,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
       )
 
       /* see #usage.1 Modifying webpack config */
-      /* we do not need *.html, *.ico and those feature as following */
+      /* we do not need *.html, *.ico and those feature the following */
       api.chainWebpack((config) => {
         config.plugins
           .delete('html') // for cli-3.2+
@@ -225,14 +223,103 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
 
       try {
         log()
-        log('build resource...')
+        log('build package start...')
         log()
         await buildCMD(args, api, options)
+        log()
+        log('build package success!')
+        log()
+      } catch (err) {
+        stopSpinner(false)
+        log(chalk.red(err))
+
+        throw err
+      }
+    }
+  )
+
+  /* see #usage.2 Add a new cli-service command */
+  api.registerCommand(
+    'upload',
+    {
+      description: 'Upload the `.tgr.gz` bundle to package server',
+      usage: 'vue-cli-service upload [options]',
+      options: {
+        '--upload-url':
+          'specify the package-server RESTful api for upload bundled files'
+      }
+    },
+    async (args) => {
+      normalizeKey(args, defaults, shared)
+
+      const dist = api.resolve(args.output)
+
+      try {
+        if (!fs.existsSync(dist)) {
+          throw new Error(
+            `Cannot found this directory ${dist}, please run 'vue-cli-service package' as first to build that.`
+          )
+        }
+
+        const files = fs
+          .readdirSync(dist)
+          .filter((file) => path.extname(file).includes('.tar'))
+
+        if (!files || !files.length) {
+          throw new Error('Cannot found any .tar package')
+        }
+
+        const packagePath = files.find((file) => {
+          if (
+            file.includes(args.name) &&
+            /^\w(\-?\w?)*@(\d\.?){3}\-?\d{13}\.tar(\.gz)?$/.test(file)
+          ) {
+            return file
+          }
+        })
+
+        if (!packagePath) {
+          throw new Error(
+            'Cannot found any file match the RegExp \'/^w(-?w?)*@(d.?){3}-?d{13}.tar(.gz)?$/\''
+          )
+        }
 
         log()
-        log('upload files...')
+        log('upload package start...')
         log()
-        await uploadCMD(args, outputPath, moduleName)
+        await uploadCMD(args, path.join(dist, packagePath), moduleName)
+        log()
+        log('upload package success!')
+        log()
+      } catch (err) {
+        stopSpinner(false)
+        log(chalk.red(err))
+
+        throw err
+      }
+    }
+  )
+
+  api.registerCommand(
+    'publish',
+    {
+      description: 'Publish current module',
+      usage: 'vue-cli-service publish [options]',
+      options: {
+        '--publish-url': ''
+      }
+    },
+    async (args) => {
+      normalizeKey(args, defaults, shared)
+
+      try {
+        log()
+        log('publish module start...')
+        log()
+        await publishCMD(args)
+        log()
+        log('publish module success!')
+        log()
       } catch (err) {
         stopSpinner(false)
         log(chalk.red(err))

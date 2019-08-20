@@ -4,9 +4,9 @@
   "description": "A vue-cli3 plugin for vue-mfe domain-app.",
   "main": "index.js",
   "files": [
+    "commands",
     "generator",
     "helpers",
-    "commands",
     "plugins/webpack-archiver-plugin",
     "plugins/webpack-manifest-plugin",
     "index.js",
