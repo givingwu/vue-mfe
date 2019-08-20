@@ -12,13 +12,13 @@ const defaults = {
   clean: true,
   target: 'lib',
   formats: 'commonjs,umd,umd-min',
-  'unsafe-inline': true,
+  'unsafe-inline': true
 }
 
 const buildModes = {
   lib: 'library',
   wc: 'web component',
-  'wc-async': 'web component (async)',
+  'wc-async': 'web component (async)'
 }
 
 module.exports = async function build(args, api, options) {
@@ -28,7 +28,7 @@ module.exports = async function build(args, api, options) {
     done,
     info,
     logWithSpinner,
-    stopSpinner,
+    stopSpinner
   } = require('@vue/cli-shared-utils')
 
   for (const key in defaults) {
@@ -44,16 +44,16 @@ module.exports = async function build(args, api, options) {
   if (args.target === 'app') {
     const bundleTag = args.modern
       ? args.modernBuild
-        ? `modern bundle `
-        : `legacy bundle `
-      : ``
+        ? 'modern bundle '
+        : 'legacy bundle '
+      : ''
     logWithSpinner(`Building ${bundleTag}for ${mode}...`)
   } else {
     const buildMode = buildModes[args.target]
 
     if (buildMode) {
       const additionalParams =
-        buildMode === 'library' ? ` (${args.formats})` : ``
+        buildMode === 'library' ? ` (${args.formats})` : ''
       logWithSpinner(
         `Building for ${mode} as ${buildMode}${additionalParams}...`
       )
@@ -74,7 +74,7 @@ module.exports = async function build(args, api, options) {
           }
 
           if (stats.hasErrors()) {
-            return reject(`Build failed with errors.`)
+            return reject('Build failed with errors.')
           }
 
           if (!args.silent) {
@@ -90,11 +90,11 @@ module.exports = async function build(args, api, options) {
                 )
                 info(
                   `Check out deployment instructions at ${chalk.cyan(
-                    `https://cli.vuejs.org/guide/deployment.html`
+                    'https://cli.vuejs.org/guide/deployment.html'
                   )}\n`
                 )
               } else {
-                done(`Build complete. Watching for changes...`)
+                done('Build complete. Watching for changes...')
               }
             }
           }

@@ -3,7 +3,6 @@
 
 const fs = require('fs')
 const request = require('request')
-// const FormData = require('form-data')
 const {
   chalk,
   log,
@@ -13,11 +12,11 @@ const {
   stopSpinner
 } = require('@vue/cli-shared-utils')
 
-module.exports = async function(args, file, moduleName) {
+module.exports = async function(args, filePath, moduleName) {
   const name = args.name
   const url = args.uploadUrl
   const download = args.downloadUrl || args.uploadUrl
-  const fileSize = fs.statSync(file).size
+  const fileSize = fs.statSync(filePath).size
 
   log()
   log(
@@ -26,7 +25,7 @@ module.exports = async function(args, file, moduleName) {
       moduleName,
       uploadUrl: url,
       downloadUrl: download,
-      file,
+      file: filePath,
       fileSize
     })
   )
@@ -42,23 +41,19 @@ module.exports = async function(args, file, moduleName) {
       // headers: { 'transfer-encoding': 'chunked' },
       filepath: file,
       knownLength: fileSize,
-    })
-
-    console.log(formData.getBoundary())
-    console.log(formData.getHeaders())
-    console.log(formData.getLengthSync()) */
+    } */
 
     return request
       .post({
         url,
         formData: {
-          file: fs.createReadStream(file),
+          file: fs.createReadStream(filePath),
           moduleName
         }
       })
       .on('error', (error) => {
         stopSpinner(false)
-        log(chalk.red(`Publish module ${chalk.cyan(name)} failed`))
+        log(chalk.red(`Upload module ${chalk.cyan(name)} failed`))
         log(chalk.red(error))
 
         reject(error)
@@ -67,7 +62,7 @@ module.exports = async function(args, file, moduleName) {
         stopSpinner(false)
 
         if (res.statusCode !== 200) {
-          log(chalk.red(`Publish module ${chalk.cyan(name)} failed`))
+          log(chalk.red(`Upload module ${chalk.cyan(name)} failed`))
           log(
             chalk.red(
               `Remote server ${url} status error. Code: ${chalk.red(
