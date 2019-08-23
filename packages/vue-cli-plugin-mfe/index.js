@@ -227,7 +227,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
         log()
         await buildCMD(args, api, options)
         log()
-        log('build package success!')
+        log('built package successfully!')
         log()
       } catch (err) {
         stopSpinner(false)
@@ -280,7 +280,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
 
         if (!packagePath) {
           throw new Error(
-            "Cannot found any file match the RegExp '/^w(-?w?)*@(d.?){3}-?d{13}.tar(.gz)?$/'"
+            "Cannot found any file matches the RegExp '/^w(-?w?)*@(d.?){3}-?d{13}.tar(.gz)?$/'"
           )
         }
 
@@ -289,7 +289,7 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
         log()
         await uploadCMD(args, path.join(dist, packagePath), moduleName)
         log()
-        log('upload package success!')
+        log('uploaded package successfully!')
         log()
       } catch (err) {
         stopSpinner(false)
@@ -303,10 +303,10 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
   api.registerCommand(
     'publish',
     {
-      description: 'Publish current module',
+      description: 'publish current application',
       usage: 'vue-cli-service publish [options]',
       options: {
-        '--publish-url': ''
+        '--publish-url': 'A RESTFul API URL'
       }
     },
     async (args) => {
@@ -314,11 +314,11 @@ module.exports = (api /* see #params.1 */, options /* see #params.2 */) => {
 
       try {
         log()
-        log('publish module start...')
+        log('publish application start...')
         log()
         await publishCMD(args)
         log()
-        log('publish module success!')
+        log('published application successfully!')
         log()
       } catch (err) {
         stopSpinner(false)
