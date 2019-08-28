@@ -154,7 +154,7 @@ Observer.prototype.emit = function(eventName) {
 };
 
 /**
- * @description lazy load style form a remote url then returns a promise
+ * @description lazy load style from a remote url then returns a promise
  * @param {String} url remote-url
  * @return {Promise}
  */
@@ -192,7 +192,7 @@ function lazyloadStyle(url) {
 }
 
 /**
- * @description lazy load script form a remote url then returns a promise
+ * @description lazy load script from a remote url then returns a promise
  * @param {String} url remote-url
  * @param {String} globalVar global variable key
  * @return {Promise}
@@ -457,6 +457,223 @@ function ensureSlash(path) {
   return path.charAt(0) === '/'
 }
 
+/**
+ * Expose `pathToRegexp`.
+ */
+var parse_1 = parse;
+var tokensToRegExp_1 = tokensToRegExp;
+
+/**
+ * Default configs.
+ */
+var DEFAULT_DELIMITER = '/';
+
+/**
+ * The main path matching regexp utility.
+ *
+ * @type {RegExp}
+ */
+var PATH_REGEXP = new RegExp([
+  // Match escaped characters that would otherwise appear in future matches.
+  // This allows the user to escape special characters that won't transform.
+  '(\\\\.)',
+  // Match Express-style parameters and un-named parameters with a prefix
+  // and optional suffixes. Matches appear as:
+  //
+  // ":test(\\d+)?" => ["test", "\d+", undefined, "?"]
+  // "(\\d+)"  => [undefined, undefined, "\d+", undefined]
+  '(?:\\:(\\w+)(?:\\(((?:\\\\.|[^\\\\()])+)\\))?|\\(((?:\\\\.|[^\\\\()])+)\\))([+*?])?'
+].join('|'), 'g');
+
+/**
+ * Parse a string for the raw tokens.
+ *
+ * @param  {string}  str
+ * @param  {Object=} options
+ * @return {!Array}
+ */
+function parse (str, options) {
+  var tokens = [];
+  var key = 0;
+  var index = 0;
+  var path = '';
+  var defaultDelimiter = (options && options.delimiter) || DEFAULT_DELIMITER;
+  var whitelist = (options && options.whitelist) || undefined;
+  var pathEscaped = false;
+  var res;
+
+  while ((res = PATH_REGEXP.exec(str)) !== null) {
+    var m = res[0];
+    var escaped = res[1];
+    var offset = res.index;
+    path += str.slice(index, offset);
+    index = offset + m.length;
+
+    // Ignore already escaped sequences.
+    if (escaped) {
+      path += escaped[1];
+      pathEscaped = true;
+      continue
+    }
+
+    var prev = '';
+    var name = res[2];
+    var capture = res[3];
+    var group = res[4];
+    var modifier = res[5];
+
+    if (!pathEscaped && path.length) {
+      var k = path.length - 1;
+      var c = path[k];
+      var matches = whitelist ? whitelist.indexOf(c) > -1 : true;
+
+      if (matches) {
+        prev = c;
+        path = path.slice(0, k);
+      }
+    }
+
+    // Push the current path onto the tokens.
+    if (path) {
+      tokens.push(path);
+      path = '';
+      pathEscaped = false;
+    }
+
+    var repeat = modifier === '+' || modifier === '*';
+    var optional = modifier === '?' || modifier === '*';
+    var pattern = capture || group;
+    var delimiter = prev || defaultDelimiter;
+
+    tokens.push({
+      name: name || key++,
+      prefix: prev,
+      delimiter: delimiter,
+      optional: optional,
+      repeat: repeat,
+      pattern: pattern
+        ? escapeGroup(pattern)
+        : '[^' + escapeString(delimiter === defaultDelimiter ? delimiter : (delimiter + defaultDelimiter)) + ']+?'
+    });
+  }
+
+  // Push any remaining characters.
+  if (path || index < str.length) {
+    tokens.push(path + str.substr(index));
+  }
+
+  return tokens
+}
+
+/**
+ * Escape a regular expression string.
+ *
+ * @param  {string} str
+ * @return {string}
+ */
+function escapeString (str) {
+  return str.replace(/([.+*?=^!:${}()[\]|/\\])/g, '\\$1')
+}
+
+/**
+ * Escape the capturing group by escaping special characters and meaning.
+ *
+ * @param  {string} group
+ * @return {string}
+ */
+function escapeGroup (group) {
+  return group.replace(/([=!:$/()])/g, '\\$1')
+}
+
+/**
+ * Get the flags for a regexp from the options.
+ *
+ * @param  {Object} options
+ * @return {string}
+ */
+function flags (options) {
+  return options && options.sensitive ? '' : 'i'
+}
+
+/**
+ * Expose a function for taking tokens and returning a RegExp.
+ *
+ * @param  {!Array}  tokens
+ * @param  {Array=}  keys
+ * @param  {Object=} options
+ * @return {!RegExp}
+ */
+function tokensToRegExp (tokens, keys, options) {
+  options = options || {};
+
+  var strict = options.strict;
+  var start = options.start !== false;
+  var end = options.end !== false;
+  var delimiter = options.delimiter || DEFAULT_DELIMITER;
+  var endsWith = [].concat(options.endsWith || []).map(escapeString).concat('$').join('|');
+  var route = start ? '^' : '';
+
+  // Iterate over the tokens and create our regexp string.
+  for (var i = 0; i < tokens.length; i++) {
+    var token = tokens[i];
+
+    if (typeof token === 'string') {
+      route += escapeString(token);
+    } else {
+      var capture = token.repeat
+        ? '(?:' + token.pattern + ')(?:' + escapeString(token.delimiter) + '(?:' + token.pattern + '))*'
+        : token.pattern;
+
+      if (keys) { keys.push(token); }
+
+      if (token.optional) {
+        if (!token.prefix) {
+          route += '(' + capture + ')?';
+        } else {
+          route += '(?:' + escapeString(token.prefix) + '(' + capture + '))?';
+        }
+      } else {
+        route += escapeString(token.prefix) + '(' + capture + ')';
+      }
+    }
+  }
+
+  if (end) {
+    if (!strict) { route += '(?:' + escapeString(delimiter) + ')?'; }
+
+    route += endsWith === '$' ? '$' : '(?=' + endsWith + ')';
+  } else {
+    var endToken = tokens[tokens.length - 1];
+    var isEndDelimited = typeof endToken === 'string'
+      ? endToken[endToken.length - 1] === delimiter
+      : endToken === undefined;
+
+    if (!strict) { route += '(?:' + escapeString(delimiter) + '(?=' + endsWith + '))?'; }
+    if (!isEndDelimited) { route += '(?=' + escapeString(delimiter) + '|' + endsWith + ')'; }
+  }
+
+  return new RegExp(route, flags(options))
+}
+
+function findRightKey(map, key) {
+  var keys = Object.keys(map);
+
+  if (keys) {
+    /** @type {RegExp[]} */
+    var regexps = keys.map(function (key) { return tokensToRegExp_1(parse_1(key)); });
+    var i = 0;
+    var l = regexps.length;
+
+    while (i++ < l) {
+      var regexp = regexps[i];
+
+      if (regexp.test(key)) {
+        return keys[i]
+      }
+    }
+  }
+}
+
 // @ts-ignore
 function objectWithoutProperties (obj, exclude) { var target = {}; for (var k in obj) if (Object.prototype.hasOwnProperty.call(obj, k) && exclude.indexOf(k) === -1) target[k] = obj[k]; return target; }
 
@@ -524,14 +741,14 @@ EnhancedRouter.prototype.addRoutes = function addRoutes (newRoutes, parentPath, 
 };
 
 /**
- * @param {Route[]|Router} routesOrRouterOpts
+ * @param {Route[]|Router} routesOrRouter
  */
-EnhancedRouter.prototype.adaptRouterOptions = function adaptRouterOptions (routesOrRouterOpts) {
-  if (routesOrRouterOpts) {
-    if (routesOrRouterOpts instanceof VueRouter) {
-      return routesOrRouterOpts.options
-    } else if (isArray(routesOrRouterOpts)) {
-      return { routes: routesOrRouterOpts }
+EnhancedRouter.prototype.adaptRouterOptions = function adaptRouterOptions (routesOrRouter) {
+  if (routesOrRouter) {
+    if (routesOrRouter instanceof VueRouter) {
+      return routesOrRouter.options
+    } else if (isArray(routesOrRouter)) {
+      return { routes: routesOrRouter }
     }
   }
 
@@ -607,7 +824,7 @@ EnhancedRouter.prototype.mergeRoutes = function mergeRoutes (oldRoutes, newRoute
 };
 
 /**
- * @description 递归刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
+ * @description DFS 刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
  * @param {Array<Route>} routes
  * @param {String} [parentPath]
  *1. from method calls: addRoutes(routes, parentPath)
@@ -652,16 +869,18 @@ EnhancedRouter.prototype.refreshAndCheckState = function refreshAndCheckState (r
 [].concat(childrenApps).forEach(function (app) {
           if (typeof app === 'object') {
             var ref = Object.entries(app).shift();
-              var appName$1 = ref[0];
+              var appName = ref[0];
               var appPath = ref[1];
-            this$1.appsMap[completePath(appPath, path)] = appName$1;
+
+            this$1.appsMap[completePath(appPath, path)] = appName;
           } else {
-            this$1.appsMap[completePath(app, path)] = appName;
+            this$1.appsMap[completePath(app, path)] = name;
           }
         });
       }
 
       if (children && children.length) {
+        // @ts-ignore
         return this$1.refreshAndCheckState(children, path)
       }
     }
@@ -689,6 +908,20 @@ EnhancedRouter.prototype.nameExists = function nameExists (name) {
 
 EnhancedRouter.prototype.getChildrenApps = function getChildrenApps (path) {
   var apps = this.appsMap[path];
+
+  /**
+   * 需要处理这种情况的路径例： ‘/path/:var’，'/wf/:projectSysNo/form/design'
+   * 路径不是固定 string ‘/a/b’，所以无法直接通过 {key: val} 映射得到对应的结果
+   * 因此引入了 pathToRegExp 这个 lib 来处理这种情况，如果 reg.test(path)
+   * 则认为匹配成功
+   */
+  if (!apps) {
+    var key = findRightKey(this.appsMap, path);
+
+    if (key) {
+      apps = this.appsMap[key];
+    }
+  }
 
   if (apps) {
     return [].concat(apps)
@@ -883,6 +1116,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
      */
     var handleError = function (error) {
       if (!(error instanceof Error)) { error = new Error(error); }
+      // @ts-ignore
       if (!error.code) { error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED; }
 
       this$1.installedApps[name] = VueMfe.LOAD_STATUS.FAILED;
@@ -962,7 +1196,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
       if (routes instanceof Error) { error = routes; }
 
       // @ts-ignore
-      error.code = VueMfe.ERROR_CODE.APP_INIT_FAILED;
+      error.code = VueMfe.ERROR_CODE.LOAD_APP_INIT_FAILED;
       VueMfe.warn(error);
 
       return false
@@ -1049,7 +1283,7 @@ VueMfe.LOAD_STATUS = {
 VueMfe.ERROR_CODE = {
   LOAD_ERROR_HAPPENED: VueMfe.LOAD_STATUS.FAILED,
   LOAD_DUPLICATE_WITHOUT_PATH: -2,
-  APP_INIT_FAILED: -3
+  LOAD_APP_INIT_FAILED: -3
 };
 
 return VueMfe;
