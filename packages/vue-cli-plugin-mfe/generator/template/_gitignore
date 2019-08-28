@@ -5,6 +5,9 @@ node_modules
 /dist
 # package portal dir
 /package
+# all lock files
+*.lock
+package-lock.json
 
 # local env files
 .env.local
