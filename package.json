@@ -37,6 +37,7 @@
   ],
   "author": "givingwu@gmail.com",
   "dependencies": {
+    "path-to-regexp": "^3.0.0",
     "vue": "^2.6.10",
     "vue-router": "^3.0.6"
   },
