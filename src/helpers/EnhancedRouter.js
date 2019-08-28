@@ -2,6 +2,7 @@
 import VueRouter from 'vue-router'
 import { isDev, isString, isArray, isObject, getWarning } from '../utils'
 import { findRoute, completePath } from '../utils/route'
+import { findRightKey } from '../utils/path'
 
 /**
  * @class EnhancedRouter
@@ -83,14 +84,14 @@ export default class EnhancedRouter {
   }
 
   /**
-   * @param {Route[]|Router} routesOrRouterOpts
+   * @param {Route[]|Router} routesOrRouter
    */
-  adaptRouterOptions(routesOrRouterOpts) {
-    if (routesOrRouterOpts) {
-      if (routesOrRouterOpts instanceof VueRouter) {
-        return routesOrRouterOpts.options
-      } else if (isArray(routesOrRouterOpts)) {
-        return { routes: routesOrRouterOpts }
+  adaptRouterOptions(routesOrRouter) {
+    if (routesOrRouter) {
+      if (routesOrRouter instanceof VueRouter) {
+        return routesOrRouter.options
+      } else if (isArray(routesOrRouter)) {
+        return { routes: routesOrRouter }
       }
     }
 
@@ -162,7 +163,7 @@ export default class EnhancedRouter {
   }
 
   /**
-   * @description 递归刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
+   * @description DFS 刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
    * @param {Array<Route>} routes
    * @param {String} [parentPath]
    *  1. from method calls: addRoutes(routes, parentPath)
@@ -199,14 +200,16 @@ export default class EnhancedRouter {
           ;[].concat(childrenApps).forEach((app) => {
             if (typeof app === 'object') {
               const [appName, appPath] = Object.entries(app).shift()
+
               this.appsMap[completePath(appPath, path)] = appName
             } else {
-              this.appsMap[completePath(app, path)] = appName
+              this.appsMap[completePath(app, path)] = name
             }
           })
         }
 
         if (children && children.length) {
+          // @ts-ignore
           return this.refreshAndCheckState(children, path)
         }
       }
@@ -235,7 +238,21 @@ export default class EnhancedRouter {
   }
 
   getChildrenApps(path) {
-    const apps = this.appsMap[path]
+    let apps = this.appsMap[path]
+
+    /**
+     * 需要处理这种情况的路径例： ‘/path/:var’，'/wf/:projectSysNo/form/design'
+     * 路径不是固定 string ‘/a/b’，所以无法直接通过 {key: val} 映射得到对应的结果
+     * 因此引入了 pathToRegExp 这个 lib 来处理这种情况，如果 reg.test(path)
+     * 则认为匹配成功
+     */
+    if (!apps) {
+      const key = findRightKey(this.appsMap, path)
+
+      if (key) {
+        apps = this.appsMap[key]
+      }
+    }
 
     if (apps) {
       return [].concat(apps)
