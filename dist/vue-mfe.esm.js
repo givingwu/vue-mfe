@@ -64,6 +64,28 @@ var getWarning = function (key) { return function (args) {
 var resolveModule = function (module) { return (module && module.default) || module; };
 
 /**
+ * getPropVal
+ * @param {Object} obj
+ * @param {string} key
+ */
+var getPropVal = function (obj, key) {
+  return key.split('.').reduce(function (o, k) {
+    return o[k]
+  }, obj)
+};
+
+/**
+ * getPrefixAppName
+ * @param {string} str
+ * @param {string} delimiter
+ */
+var getPrefixAppName = function (str, delimiter) { return str
+    .split(delimiter || '.')
+    .filter(Boolean)
+    .map(function (s) { return s.trim(); })
+    .shift(); };
+
+/**
  * @description execute an array of promises serially
  * @template T
  * @param {Array<Promise<T>>} promises
@@ -71,11 +93,14 @@ var resolveModule = function (module) { return (module && module.default) || mod
  */
 var serialExecute = function (promises) {
   return promises.reduce(function (chain, next) {
-    return chain
-      .then(function (retVal) { return next(retVal); })
-      .catch(function (err) {
-        throw err
-      })
+    return (
+      chain
+        // @ts-ignore
+        .then(function (retVal) { return next(retVal); })
+        .catch(function (err) {
+          throw err
+        })
+    )
   }, Promise.resolve())
 };
 
@@ -1071,6 +1096,62 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
     });
   };
 
+  /**
+   * import
+   * @description 解析传入的名称获取应用前缀，懒加载应用并返回解析后的 module 内部变量
+   * @tutorial
+   *  1. 远程组件内部必须自包含样式
+   *  2. 远程组件同样支持分片加载
+   *  3. 可以引入所有被暴露的模块
+   * @param {string} name appName+delimiter+[moduleName?]+componentName
+   * @param {string} delimiter 可自定义配置的分隔符
+   * @example 引入特定 appName 应用下特定 moduleName 下特定 componentName
+   *  ```js
+   *    const LazyComponent = mfe.import('appName.moduleName.componentName')
+   *  ```
+   * @example 引入 workflow 下入口文件暴露出的 FlowLayout 组件，wf 为 appName，FlowLayout 为 portal.entry.js module 暴露出的变量
+   *  ```js
+   *    const FlowLayout = mfe.import('wf.components.FlowLayout')
+   *  ```
+   */
+  VueMfe.prototype.import = function import$1 (name, delimiter) {
+    if ( delimiter === void 0 ) delimiter = '.';
+
+    var appName = getPrefixAppName(name, delimiter);
+    var keyPath = name
+      .slice(appName.length + delimiter.length)
+      .replace(delimiter, '.');
+
+    return (
+      appName &&
+      this._loadAppEntry(appName).then(function (module) {
+        var component = getPropVal(module, keyPath);
+
+        if (isFunction(component)) {
+          return component()
+        } else {
+          return component
+        }
+      })
+    )
+  };
+
+  VueMfe.prototype.isInstalled = function isInstalled (route) {
+    var name = route;
+
+    if (isObject(route) && /\//.exec(route.path)) {
+      name = this._getPrefixName(route);
+    } else if (isString(route) && /\//.exec(route)) {
+      name = this._getPrefixNameByDelimiter(route, '/');
+    }
+
+    return this.installedApps[name] === VueMfe.LOAD_STATUS.SUCCESS
+  };
+
+  VueMfe.prototype.preinstall = function preinstall (name) {
+    return name && this.installApp({ name: name })
+  };
+
   VueMfe.prototype.installApp = function installApp (args) {
     var this$1 = this;
 
@@ -1119,9 +1200,9 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
       this$1.emit('error', error, args); // error-first like node?! 😊
     };
 
-    return this.loadAppEntry(args)
-      .then(function (module) { return this$1.executeAppEntry(module); })
-      .then(function (routes) { return this$1.installAppModule(routes); })
+    return this._loadAppEntry(args)
+      .then(function (module) { return this$1._executeAppEntry(module); })
+      .then(function (routes) { return this$1._installAppModule(routes, name); })
       .then(handleSuccess)
       .catch(handleError)
   };
@@ -1130,12 +1211,12 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
    * @param {string|{name: string}} name
    * @returns {Promise<AppModule>}
    */
-  VueMfe.prototype.loadAppEntry = function loadAppEntry (name) {
+  VueMfe.prototype._loadAppEntry = function _loadAppEntry (name) {
     return this.lazyloader.load(typeof name === 'string' ? { name: name } : name)
   };
 
   /**
-   * executeAppEntry
+   * _executeAppEntry
    * @description To executes the ESM/UMD app module
    * @typedef {import('vue').Component} VueComponent
    * @typedef {(app: VueComponent)=>Promise<Route[]>|Route[]|{init: (app: VueComponent)=>Promise<boolean>, routes: Route[]}} AppModule
@@ -1149,7 +1230,7 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
    *  3. module is an object with property 'init' and 'routes'
    *    module: { init: Function, routes: Array<Route> }
    */
-  VueMfe.prototype.executeAppEntry = function executeAppEntry (module) {
+  VueMfe.prototype._executeAppEntry = function _executeAppEntry (module) {
     module = resolveModule(module);
 
     /** @type {VueComponent}  */
@@ -1172,9 +1253,10 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
 
   /**
    * @param {Route[]} routes
+   * @param {string} name
    * @throws {Error}
    */
-  VueMfe.prototype.installAppModule = function installAppModule (routes) {
+  VueMfe.prototype._installAppModule = function _installAppModule (routes, name) {
     if (isArray(routes)) {
       if (routes.length) {
         // @ts-ignore
@@ -1195,22 +1277,6 @@ var VueMfe = /*@__PURE__*/(function (Observer$$1) {
 
       return false
     }
-  };
-
-  VueMfe.prototype.isInstalled = function isInstalled (route) {
-    var name = route;
-
-    if (isObject(route) && /\//.exec(route.path)) {
-      name = this._getPrefixName(route);
-    } else if (isString(route) && /\//.exec(route)) {
-      name = this._getPrefixNameByDelimiter(route, '/');
-    }
-
-    return this.installedApps[name] === VueMfe.LOAD_STATUS.SUCCESS
-  };
-
-  VueMfe.prototype.preinstall = function preinstall (name) {
-    return name && this.installApp({ name: name })
   };
 
   VueMfe.prototype._installChildrenApps = function _installChildrenApps (apps, ref) {
