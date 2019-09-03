@@ -88,6 +88,29 @@ export const camelize = (str, pascalCase = false) =>
 export const resolveModule = (module) => (module && module.default) || module
 
 /**
+ * getPropVal
+ * @param {Object} obj
+ * @param {string} key
+ */
+export const getPropVal = (obj, key) => {
+  return key.split('.').reduce((o, k) => {
+    return o[k]
+  }, obj)
+}
+
+/**
+ * getPrefixAppName
+ * @param {string} str
+ * @param {string} delimiter
+ */
+export const getPrefixAppName = (str, delimiter) =>
+  str
+    .split(delimiter || '.')
+    .filter(Boolean)
+    .map((s) => s.trim())
+    .shift()
+
+/**
  * @description Define immutable property for the given object
  * @param {Object} obj
  * @param {string} key
@@ -110,10 +133,13 @@ export const defineImmutableProp = (obj, key, val) => {
  */
 export const serialExecute = (promises) => {
   return promises.reduce((chain, next) => {
-    return chain
-      .then((retVal) => next(retVal))
-      .catch((err) => {
-        throw err
-      })
+    return (
+      chain
+        // @ts-ignore
+        .then((retVal) => next(retVal))
+        .catch((err) => {
+          throw err
+        })
+    )
   }, Promise.resolve())
 }
