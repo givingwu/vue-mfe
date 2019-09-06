@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * @description lazy load style from a remote url then returns a promise
  * @param {String} url remote-url
@@ -11,6 +10,7 @@ export function lazyloadStyle(url) {
   link.rel = 'stylesheet'
   link.charset = 'utf-8'
   link.href = url
+  // @ts-ignore
   link.setAttribute('force', false)
 
   return new Promise((resolve, reject) => {
@@ -18,6 +18,7 @@ export function lazyloadStyle(url) {
 
     function clearState(isError) {
       clearTimeout(timerId)
+      // @ts-ignore
       link.onerror = link.onload = link.onreadystatechange = null // 同时检查两种状态，只要有一种触发就删除事件处理器，避免触发两次
 
       isError && link && remove(link)
@@ -60,12 +61,15 @@ export function lazyLoadScript(url, globalVar) {
 
     function clearState() {
       clearTimeout(timerId)
+      // @ts-ignore
       script.onerror = script.onload = script.onreadystatechange = null // 同时检查两种状态，只要有一种触发就删除事件处理器，避免触发两次
       remove(script)
     }
 
     function onLoadSuccess() {
       clearState()
+
+      // @ts-ignore
       resolve(globalVar ? window[globalVar] : undefined, ...arguments)
     }
 
@@ -74,11 +78,15 @@ export function lazyLoadScript(url, globalVar) {
       reject(...arguments)
     }
 
+    // @ts-ignore
     if (script.readyState !== undefined) {
       // IE
+      // @ts-ignore
       script.onreadystatechange = function change(evt) {
         if (
+          // @ts-ignore
           (script.readyState === 'loaded' ||
+            // @ts-ignore
             script.readyState === 'complete') &&
           (globalVar ? window[globalVar] : true)
         ) {

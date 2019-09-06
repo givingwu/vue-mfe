@@ -1,11 +1,23 @@
-import { isDev } from './env'
-import { isFunction } from './type'
+export const isDev = process.env.NODE_ENV === 'development'
+
+export const isMaster = process.env.VUE_APP_MASTER !== undefined
+
+export const isPortal = !isMaster || process.env.VUE_APP_PORTAL !== undefined
 
 export const noop = () => {}
 
+export const isArray = (arr) => Array.isArray(arr)
+
+export const isFunction = (fn) => fn && typeof fn === 'function'
+
+export const isObject = (obj) => obj && typeof obj === 'object'
+
+export const isString = (str) => typeof str === 'string'
+
 export const toArray = (args) => Array.prototype.slice.call(args)
 
-export const hasConsole = // eslint-disable-next-line no-console
+export const hasConsole =
+  // eslint-disable-next-line
   typeof console !== 'undefined' && typeof console.warn === 'function'
 
 export function assert(condition, onSuccess, onFailure) {
@@ -16,20 +28,28 @@ export function assert(condition, onSuccess, onFailure) {
   }
 }
 
-export const warn = function warning() {
-  if (isDev) {
-    throw Error.apply(window, arguments)
-  } else {
-    // eslint-disable-next-line no-console
-    hasConsole && console.warn.apply(arguments)
-  }
+export const getLogger = (key) => (args) => {
+  return assert(
+    isDev,
+    // eslint-disable-next-line
+    () =>
+      hasConsole &&
+      console.log.apply(null, key ? [key, ...toArray(args)] : args),
+    noop
+  )
 }
 
-export const log = function logging() {
-  if (isDev) {
-    // eslint-disable-next-line no-console
-    hasConsole && console.log.apply(arguments)
+export const getWarning = (key) => (args) => {
+  const throwError = (err) => {
+    throw new Error(err)
   }
+
+  // eslint-disable-next-line
+  const fn = isDev ? throwError : hasConsole ? console.warn : noop
+
+  return assert(true, () => {
+    fn.apply(null, key ? [[key, ...toArray(args)].join(' > ')] : args)
+  })
 }
 
 /* https://github.com/reduxjs/redux/blob/master/src/utils/actionTypes.js */
@@ -79,6 +99,18 @@ export const getPropVal = (obj, key) => {
 }
 
 /**
+ * getPrefixAppName
+ * @param {string} str
+ * @param {string} delimiter
+ */
+export const getPrefixAppName = (str, delimiter) =>
+  str
+    .split(delimiter || '.')
+    .filter(Boolean)
+    .map((s) => s.trim())
+    .shift()
+
+/**
  * @description Define immutable property for the given object
  * @param {Object} obj
  * @param {string} key
@@ -94,13 +126,20 @@ export const defineImmutableProp = (obj, key, val) => {
 }
 
 /**
- * getFirstWord
- * @param {string} str
- * @param {string} [delimiter]
+ * @description execute an array of promises serially
+ * @template T
+ * @param {Array<Promise<T>>} promises
+ * @returns {Promise<T>} the finally result of promises
  */
-export const getFirstWord = (str, delimiter = '/') =>
-  str
-    .split(delimiter || '.')
-    .filter(Boolean)
-    .map((s) => s.trim())
-    .shift()
+export const serialExecute = (promises) => {
+  return promises.reduce((chain, next) => {
+    return (
+      chain
+        // @ts-ignore
+        .then((retVal) => next(retVal))
+        .catch((err) => {
+          throw err
+        })
+    )
+  }, Promise.resolve())
+}

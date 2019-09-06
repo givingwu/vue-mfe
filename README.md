@@ -21,117 +21,103 @@ ___________
 
 
 ## FEATURES
-+ integrating event-driven design pattern.
-+ support preinstall or lazyload a micro-app.
-+ enhanced vue-router with `helpers` property, [more](./src/helpers/EnhancedRouter.js).
-+ support dynamically add child routes to an existing route & nested route.
++ Support dynamically add child routes to an existing route & nested route.
++ Support preinstall or lazyload a sub-app & nested sub-app.
++ Support load a component remotely
 
 
 ## How?
 <img width="100%" src="./docs/.vuepress/public/images/vue-mfe-architecture-v1.jpg" alt="VueMfe logo">
 
 
+## MASTER-RUNTIME
+```js
+import router from '@@/router/index'
+import { createApp } from 'vue-mfe'
+
+// 主运行时
+/** @type {VueComponent & VueMfeApp} */
+export default createApp(/** @type {VueRouter} */router, {
+  // 是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
+  /** @type {boolean} */
+  sensitive: false,
+
+  // 默认的 parentPath => router.addRoutes(routes, parentPath)
+  /** @type {string} */
+  parentPath: '/',
+
+  // 获取资源的配置函数，支持同步和异步
+  /** @type {Object|Function} */
+  resources: () => {},
+})
+```
+
+
+### SUB-APP
+```js
+import routes from '@@/router/index'
+import { createSubApp } from 'vue-mfe'
+
+export default createSubApp({
+  /** @type {string}  */
+  prefix: '/prefix',
+
+  // module name
+  /** @type {string}  */
+  name: '工作流',
+
+  // the parent path of current sub app
+  parentPath: '/',
+
+  // umd global variable
+  /** @type {string}  */
+  globalVar: '__domain__app__prefix',
+
+  // main resources .css & .js
+  /** @type {string[]}  */
+  resources: ['main.xxxxxxx.css', 'prefix.xxxx.umd.js', 'prefix.xxxx.umd.js'],
+
+  // dynamic routes will be auto injected to main app router
+  /** @type {RouteConfig[]} */
+  routes,
+
+  /** @type {() => void|Promise<T>} init function */
+  init: () => {},
+
+  /** @type {Object<string, Function>} */
+  components: {
+    FlowLayout: () =>
+      import('./views/flow/design-center/components/flow/index'),
+  },
+})
+```
+
+## LAZY-LOAD
+```js
+import VueMfe from 'vue-mfe'
+
+// if use it without called method `VueMfe.createApp(config: AppConfig)`
+VueMfe.setConfig({
+  resources: {
+    a: 'a.umd.js',
+    b: 'b.umd.js'
+  }
+})
+
+VueMfe.lazy('a.components.ComponentName')
+```
+
+
 ## API
 
-+ `mfe.js` to initialize Vue-MFE
++ `VueMfe.lazy`
++ `VueMfe.createApp`
++ `VueMfe.createSubApp`
 
-```js
-import Vue from 'vue'
-import VueMfe from 'vue-mfe';
-import router from './router';
-
-Vue.use(VueMfe)
-
-export default new VueMfe({
-  router,
-  ignoreCase: true, // To ignore path case '/AuTh/uSEr' => '/auth/user'
-  parentPath: '/', // The default parentPath when call `router.addRoutes(routes, parentPath)`
-  getNamespace: (name) => `__domain__app__${name}`, // Returns the global UND namespace of current domain app
-  getResource: () => { // To get resource from remote by this function
-    if (process.env.NODE_ENV === 'development') {
-      return {
-        bar: () => import('../../../domain-app/bar/esm'),
-        foo: () => import('../../../domain-app/foo/esm'),
-      }
-    } else {
-      return {
-        bar: ['http://absolute/path/to/bar.umd.js'],
-        foo: ['http://absolute/path/to/foo.umd.js'],
-      }
-    }
-  }
-});
-```
-
-+ `preinstall.js` to preinstall a micro-app:
-```js
-import mfe from './mfe'
-
-if (!mfe.isInstalled('foo')) {
-  mfe.preinstall('foo').then(() => {
-    console.log('isInstalled:', mfe.isInstalled('foo')); // true
-
-    // does path exist or not
-    if (mfe.helpers.pathExists('/foo')) {
-      // eslint-disable-next-line
-      console.log('/foo route:', mfe.helpers.findRoute('/foo')) /* findRoute(path: string) */
-
-      if (!mfe.helpers.pathExists('/foo/dynamic')) {
-        /* add route dynamic with parentPath and exists route */
-        mfe.addRoutes([{
-          path: '/dynamic',
-          parentPath: '/foo',
-          component: {
-            template: '<h2>i am /foo/dynamic page</h2>'
-          }
-        }])
-      }
-    }
-  })
-}
-```
-
-`main.js` 初始化应用:
-```js
-import Vue from 'vue'
-import VueMfe from 'vue-mfe'
-import router from './router'
-import mfe from './mfe'
-import './preinstall'
-
-new Vue({
-  mfe, // pass `mfe` like vue-router
-  router,
-  created() {
-    // event: when load micro-app start
-    this.$mfe.on('start', ({ name }) => {
-      console.log(`Load ${name} start`);
-    });
-
-    // event: when load micro-app success
-    this.$mfe.on('end', ({ name }) => {
-      console.log(`Load ${name} success`);
-    });
-
-    // event: when load micro-app failed with diff error code
-    this.$mfe.on('error', (error, { name }) => {
-      console.log(name, error.code, VueMfe.ERROR_CODE);
-      console.error(error);
-    });
-  },
-  template: `
-    <div id="app">
-      <h1>Vue-MFE</h1>
-      <router-view></router-view>
-    </div>
-  `
-}).$mount('#app')
-```
 
 ## TODO
-+ [ ] write unit test cases
-+ [ ] write demo with multiple webpack
-+ [ ] update docs by vuepress
++ [ ] unit test cases
++ [x] deploy docs by vuepress
 + [x] publish package to npm registry
 
 

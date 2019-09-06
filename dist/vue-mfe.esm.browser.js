@@ -1,13 +1,9 @@
 /*!
-  * vue-mfe v1.0.4
+  * vue-mfe v1.0.5
   * (c) 2019 Vuchan
   * @license MIT
   */
 import VueRouter from 'vue-router';
-
-const isDev = "development" === 'development';
-
-const noop = () => {};
 
 const isArray = (arr) => Array.isArray(arr);
 
@@ -17,42 +13,108 @@ const isObject = (obj) => obj && typeof obj === 'object';
 
 const isString = (str) => typeof str === 'string';
 
-const toArray = (args) => Array.prototype.slice.call(args);
+/**
+ * @typedef {import("../..").AppConfig} AppConfig
+ * @typedef {import("../..").SubAppConfig} SubAppConfig
+ */
+/** @type {Map<string, SubAppConfig>} */
+const configMap = new Map();
 
-const hasConsole =
-  // eslint-disable-next-line
-  typeof console !== 'undefined' && typeof console.warn === 'function';
+/**
+ * getResource
+ * @param {string} prefix
+ * @returns {import('../..').Resources}
+ */
+const getResource = (prefix) => {
+  // 1. 先取 SubApp.config
+  let config = getConfig(prefix);
 
-function assert(condition, onSuccess, onFailure) {
-  if (condition) {
-    return isFunction(onSuccess) && onSuccess()
-  } else {
-    return isFunction(onFailure) && onFailure()
+  if (!config || !config.resources) {
+    // 2. 再取 HostApp.config
+    config = getConfig();
   }
-}
 
-const getLogger = (key) => (args) => {
-  return assert(
-    isDev,
-    // eslint-disable-next-line
-    () =>
-      hasConsole &&
-      console.log.apply(null, key ? [key, ...toArray(args)] : args),
-    noop
-  )
+  if (config && config.resources) {
+    if (isFunction(config.resources)) {
+      // @ts-ignore
+      return config.resources()
+    }
+
+    if (isObject(config.resources)) {
+      return config.resources
+    }
+  }
 };
 
-const getWarning = (key) => (args) => {
-  const throwError = (err) => {
-    throw new Error(err)
-  };
+/**
+ * @returns {import('../..').Router}
+ */
+// @ts-ignore
+const getRouter = () => getConfig().router;
 
-  // eslint-disable-next-line
-  const fn = isDev ? throwError : hasConsole ? console.warn : noop;
+const getRootApp = () => getRouter().app;
 
-  return assert(true, () => {
-    fn.apply(null, key ? [[key, ...toArray(args)].join(' > ')] : args);
-  })
+/**
+ * getVarName
+ * @param {string} prefix
+ */
+const getVarName = (prefix) => {
+  return getConfig(prefix).globalVar || '__domain__app__' + prefix
+};
+
+/**
+ * getAppName
+ * @param {string} prefix
+ */
+const getAppName = (prefix) => {
+  return getConfig(prefix).name
+};
+
+/**
+ * getConfig
+ * @param {string} prefix
+ * @returns {SubAppConfig}
+ */
+const getConfig = (prefix = '*') => {
+  // @ts-ignore
+  return configMap.get(prefix) || {}
+};
+
+/**
+ * registerApp 注册应用并记录配置到 configMap
+ * @param {string|AppConfig|SubAppConfig} prefix
+ * @param {SubAppConfig} [config]
+ */
+const registerApp = (prefix, config) => {
+  // 默认的全局配置为 { *: config }
+  if (isObject(prefix)) {
+    // @ts-ignore
+    config = prefix;
+    prefix = config.prefix || '*';
+  }
+
+  if (isString(prefix) && isObject(config)) {
+    // @ts-ignore
+    return configMap.set(prefix, config)
+  }
+
+  return false
+};
+
+const isDev = "development" === 'development';
+// export const isMaster = true !== undefined
+// export const isPortal = !isMaster || undefined !== undefined
+
+const hasConsole = // eslint-disable-next-line no-console
+  typeof console !== 'undefined' && typeof console.warn === 'function';
+
+const warn = function warning() {
+  if (isDev) {
+    throw Error.apply(window, arguments)
+  } else {
+    // eslint-disable-next-line no-console
+    hasConsole && console.warn.apply(arguments);
+  }
 };
 
 /**
@@ -76,101 +138,18 @@ const getPropVal = (obj, key) => {
 };
 
 /**
- * getPrefixAppName
+ * getFirstWord
  * @param {string} str
- * @param {string} delimiter
+ * @param {string} [delimiter]
  */
-const getPrefixAppName = (str, delimiter) =>
+const getFirstWord = (str, delimiter = '/') =>
   str
     .split(delimiter || '.')
     .filter(Boolean)
     .map((s) => s.trim())
     .shift();
 
-/**
- * @description execute an array of promises serially
- * @template T
- * @param {Array<Promise<T>>} promises
- * @returns {Promise<T>} the finally result of promises
- */
-const serialExecute = (promises) => {
-  return promises.reduce((chain, next) => {
-    return (
-      chain
-        // @ts-ignore
-        .then((retVal) => next(retVal))
-        .catch((err) => {
-          throw err
-        })
-    )
-  }, Promise.resolve())
-};
-
-/**
- * @class Observer
- * @author VuChan
- * @constructor
- * @see https://github.com/vuchan/fe-utils/blob/master/helpers/Obersver.js
- * @return {Object} Observer Design Pattern Implementation
- */
-function Observer() {
-  this.events = {};
-}
-
-/**
- * observer.on('eventName', function listener() {})
- * @param  {string} eventName
- * @param  {Function} listener
- * @return {Array<Function>}
- */
-Observer.prototype.on = function(eventName, listener) {
-  if (!this.events[eventName]) {
-    this.events[eventName] = [ listener ];
-  } else {
-    this.events[eventName].push(listener);
-  }
-
-  return this.events[eventName];
-};
-
-/**
- * observer.off('eventName', function listener() {})
- * @param  {string} eventName
- * @param  {Function} listener
- * @return {boolean|null}
- */
-Observer.prototype.off = function(eventName, listener) {
-  if (eventName) {
-    let handlers = this.events[eventName];
-
-    if (handlers && handlers.length) {
-      if (listener) {
-        return (handlers = handlers.filter((handler) => handler === listener));
-      } else {
-        delete this.events[eventName];
-        return true;
-      }
-    }
-  } else {
-    this.events = {};
-  }
-};
-
-/**
- * observer.emit('eventName', data1, data2, ...dataN)
- * @param  {string} eventName
- * @param  {Array}  data
- * @return {boolean}
- */
-Observer.prototype.emit = function(eventName, ...data) {
-  const handlers = this.events[eventName];
-
-  if (handlers) {
-    handlers.forEach((handler) => handler.apply(null, data));
-    return true;
-  }
-};
-
+// @ts-nocheck
 /**
  * @description lazy load style from a remote url then returns a promise
  * @param {String} url remote-url
@@ -287,150 +266,165 @@ function remove(ele) {
   }
 }
 
+/* eslint-disable */
+
+let cached = {};
+
 /**
- * @class Lazyloader
- * @description only focus on load resource from `config.getResource()`.
+ * load 根据 prefix 加载 resources
+ * @param {string} prefix
  */
-class Lazyloader {
-  static log() {
-    return getLogger('VueMfe.' + Lazyloader.name)(arguments)
-  }
+function load(prefix) {
+  return (
+    cached[prefix] ||
+    getEntries(prefix).then((url) => {
+      const resources = isFunction(url) ? url() : url;
 
-  static warn() {
-    return getWarning('VueMfe.' + Lazyloader.name)(arguments)
-  }
-
-  /**
-   * @constructor
-   */
-  constructor() {
-    /** @type {{}} */
-    this.cached = {};
-  }
-
-  load({ name }) {
-    return this.getRouteEntry(name).then((url) => {
-      const resource = isFunction(url) ? url() : url;
-      Lazyloader.log(`start to load ${name} resources:`, resource);
-
-      return isDev && isObject(resource) && !isArray(resource)
-        ? resource /* if local import('url') */
-        : this.installResources(
-            (isArray(resource) ? resource : [resource]).filter(Boolean),
-            this.getName(name)
-          )
+      try {
+        return isDev && isObject(resources) && !isArray(resources)
+          ? resources /* when local import('url') */
+          : (cached[prefix] = install(
+              (isArray(resources) ? resources : [resources]).filter(Boolean),
+              getVarName(prefix)
+            ))
+      } catch (error) {
+        console.log('error: ', error);
+        throw new Error(error)
+      }
     })
-  }
-
-  getRouteEntry(name) {
-    let cache = this.cached[name];
-
-    if (cache) {
-      return Promise.resolve(cache)
-    } else {
-      return Promise.resolve(this.getResource(name)).then((data = {}) => {
-        this.cached = Object.assign({}, this.cached, data);
-
-        if (data[name]) {
-          return data[name]
-        } else {
-          Lazyloader.log('all resources', JSON.stringify(data));
-          Lazyloader.warn(
-            `The App '${name}' cannot be found in method 'config.getResource()'`
-          );
-        }
-      })
-    }
-  }
-
-  /**
-   * installResources
-   * @description install JS/CSS resources
-   * @typedef {string} Link
-   * @param {Array<Link>} urls
-   * @param {string} name
-   */
-  installResources(urls, name) {
-    const allCss = urls.filter((url) => url.endsWith('.css'));
-    const scripts = urls.filter((url) => url.endsWith('.js'));
-
-    if (isArray(allCss) && allCss.length) {
-      Promise.all(allCss.map((css) => lazyloadStyle(css))).catch((error) =>
-        Lazyloader.warn(error)
-      );
-    }
-
-    if (isArray(scripts) && scripts.length) {
-      return serialExecute(
-        // @ts-ignore
-        scripts.map((script) => () => lazyLoadScript(script, name))
-      ).catch((error) => {
-        throw error
-      })
-    } else {
-      Lazyloader.warn(`no any valid entry script be found in ${urls}`);
-    }
-  }
-
-  getResource(name) {
-    return this.getConfig(name).getResource()
-  }
-
-  getName(name) {
-    return this.getConfig(name).getNamespace(name)
-  }
-
-  getConfig(name = '*') {
-    return this.configs[name] || this.configs['*']
-  }
-
-  setConfig(name, config) {
-    if (isObject(name)) {
-      config = name;
-      name = '*';
-    }
-
-    if (!this.configs) {
-      this.configs = {};
-    }
-
-    this.configs[name] = config;
-
-    return this
-  }
+  )
 }
 
 /**
- * findRoute 深度优先递归遍历找到匹配 matchPath 的 Route
- * @typedef {import('vue-router').RouteConfig} Route
- * @param {Array<Route>} routes
- * @param {String} matchPath
- * @returns {Route}
+ * getEntries 获取资源入口
+ * @param {string} key
  */
-function findRoute(routes = [], matchPath) {
-  let i = 0;
-  let matchedRoute = null;
-  const l = routes.length;
+const getEntries = (key) => {
+  return Promise.resolve(getResource(key)).then((obj = {}) => {
+    return (
+      obj[key] ||
+      warn(`The App key '${key}' cannot be found in ${JSON.stringify(obj)}`)
+    )
+  })
+};
 
-  while (i < l) {
-    const route = routes[i];
-    const { path, children } = route;
+/**
+ * install
+ * @description install .js or .css files
+ * @typedef {string} Link
+ * @param {Array<Link>} urls
+ * @param {string} name
+ *
+ * @returns {Promise<import('..').Resource>}
+ */
+const install = (urls, name) => {
+  const css = urls.filter((url) => url.endsWith('.css'));
+  const scripts = urls.filter((url) => url.endsWith('.js'));
 
-    if (path === matchPath) {
-      /* 匹配路径 */
-      return route
-    } else if (children && children.length) {
-      /* 深度优先遍历，不匹配，但是有children，则递归children并返回匹配结果 */
-      matchedRoute = findRoute(children, matchPath);
-      i++; /* 自增当前集合索引i */
-    } else {
-      i++; /* 自增当前集合索引i */
-    }
-
-    if (matchedRoute) {
-      return matchedRoute
-    }
+  if (isArray(css) && css.length) {
+    Promise.all(css.map((css) => lazyloadStyle(css))).catch(warn);
   }
+
+  if (isArray(scripts) && scripts.length) {
+    return serialExecute(
+      // @ts-ignore
+      scripts.map((script) => () => lazyLoadScript(script, name))
+    ).catch((error) => {
+      warn(error);
+    })
+  } else {
+    warn(`No any valid script be found in ${urls}`);
+  }
+};
+
+/**
+ * @description execute an array of promises serially
+ * @template T
+ * @param {Array<Promise<T>>} promises
+ * @returns {Promise<T>} the finally result of promises
+ */
+const serialExecute = (promises) => {
+  return promises.reduce((chain, next) => {
+    return (
+      chain
+        // @ts-ignore
+        .then((retVal) => next(retVal))
+        .catch((err) => {
+          throw err
+        })
+    )
+  }, Promise.resolve())
+};
+
+/**
+ * Lazy
+ * @description 解析传入的名称获取应用前缀，懒加载应用并返回解析后的 module 内部变量
+ * @tutorial
+ *  1. 远程组件内部必须自包含样式
+ *  2. 远程组件同样支持分片加载
+ *  3. 可以引入所有被暴露的模块
+ * @param {string} url appName+delimiter+[moduleName?]+componentName
+ * @example 引入特定 appName 应用下特定 moduleName 下特定 componentName
+ *  ```js
+ *    const LazyComponent = VueMfe.lazy('appName.moduleName.componentName')
+ *  ```
+ * @example 引入 workflow 下入口文件暴露出的 FlowLayout 组件，wf 为 appName，FlowLayout 为 portal.entry.js module 暴露出的变量
+ *  ```js
+ *    const FlowLayout = VueMfe.lazy('wf.components.FlowLayout')
+ *  ```
+ */
+const lazy = (url) => {
+  if (!getConfig()) {
+    throw new Error(
+      'Before you calls `VueMfe.Lazy(url: string)` must setting its config use like `VueMfe.lazy.setConfig({ resource: Resources })`'
+    )
+  }
+
+  const appName = getAppName(url);
+  const keyPath = url.slice(appName.length + 1);
+
+  return (
+    appName &&
+    load(appName).then((module) => {
+      const component = getPropVal(module, keyPath);
+
+      if (isFunction(component)) {
+        return component()
+      } else {
+        return component
+      }
+    })
+  )
+};
+
+lazy.setConfig = function(config) {
+  registerApp(config);
+};
+
+const SUCCESS = 1;
+const START = 0;
+const FAILED = -1;
+
+
+var LOAD_STATUS = Object.freeze({
+	SUCCESS: SUCCESS,
+	START: START,
+	FAILED: FAILED
+});
+
+// 记录 app 加载状态
+const appStatus = {};
+
+/**
+ * isInstalled
+ * @param {string} prefix
+ */
+function isInstalled(prefix) {
+  return appStatus[prefix] === SUCCESS
+}
+
+function setAppStatus(prefix, status) {
+  return (appStatus[prefix] = status)
 }
 
 /**
@@ -664,7 +658,8 @@ function tokensToRegExp (tokens, keys, options) {
   return new RegExp(route, flags(options))
 }
 
-function findRightKey(map, key) {
+function findMatchedName(map, key) {
+  // all names array
   const keys = Object.keys(map);
 
   if (keys) {
@@ -683,646 +678,555 @@ function findRightKey(map, key) {
   }
 }
 
-// @ts-ignore
-
 /**
- * @class EnhancedRouter
- * @description Dynamically add child routes to an existing route & provides some `helpers` method
+ * findRoute DFS
+ * @typedef {import('vue-router').RouteConfig} Route
+ * @param {Array<Route>} routes
+ * @param {String} path
+ * @returns {Route}
  */
-class EnhancedRouter {
-  static warn() {
-    return getWarning(EnhancedRouter.name)(arguments)
-  }
+function findRoute(routes = [], path) {
+  if (routes) {
+    let route;
 
-  /**
-   * @typedef {import('vue-router').RouteConfig} VueRoute
-   * @typedef {Object} EnhancedRoute
-   * @property {string} parentPath The nested parent path
-   * @property {string|Array<string>} childrenApps The nested children app name or names array
-   * @typedef {VueRoute & EnhancedRoute} Route
-   *
-   * @typedef {import('vue-router').default} VueRouter
-   * @typedef {Object} EnhancedRouterRef
-   * @property {import('vue-router').RouterOptions} options
-   * @property {Object} matcher
-   * @typedef {VueRouter & EnhancedRouterRef} Router
-   *
-   * @param {Router} router
-   */
-  constructor(router) {
-    // @override `VueRouter.prototype.addRoutes` method
-    if (router.addRoutes !== this.addRoutes) {
-      router.addRoutes = this.addRoutes.bind(this);
-    }
+    for (let i = 0; i < routes.length; i++) {
+      route = routes[i];
 
-    this.router = router;
-
-    /**
-     * @type {Route[]}
-     */
-    // @ts-ignore
-    this.routes = router.options.routes;
-    this.pathMap = {};
-    this.pathList = [];
-    this.appsMap = {};
-
-    this._init();
-  }
-
-  _init() {
-    this.refreshAndCheckState(this.routes);
-  }
-
-  /**
-   * @description Add new routes into current router, and supports dynamic nest
-   * @see
-   *  + [Dynamically add child routes to an existing route](https://github.com/vuejs/vue-router/issues/1156)
-   *  + [Feature request: replace routes dynamically](https://github.com/vuejs/vue-router/issues/1234#issuecomment-357941465)
-   * @param {Array<Route>} newRoutes VueRoute route option
-   * @param {string} [parentPath]
-   * @param {Array<Route>} [oldRoutes]
-   */
-  addRoutes(newRoutes, parentPath, oldRoutes) {
-    if (isDev) {
-      console.log(this.pathList);
-      console.log(this.pathMap);
-    }
-
-    // before merge new routes we need to check them out does
-    // any path or name whether duplicate in old routes
-    this.refreshAndCheckState(newRoutes, parentPath);
-
-    // reset current router's matcher with merged routes
-    this.router.matcher = new VueRouter(
-      this.normalizeOptions(
-        // @ts-ignore
-        this.adaptRouterOptions(oldRoutes || this.router),
-        { routes: newRoutes },
-        parentPath
-      )
-      // @ts-ignore
-    ).matcher;
-  }
-
-  /**
-   * @param {Route[]|Router} routesOrRouter
-   */
-  adaptRouterOptions(routesOrRouter) {
-    if (routesOrRouter) {
-      if (routesOrRouter instanceof VueRouter) {
-        return routesOrRouter.options
-      } else if (isArray(routesOrRouter)) {
-        return { routes: routesOrRouter }
-      }
-    }
-
-    return {}
-  }
-
-  /**
-   * @description normalize the options between oldRouter and newRouter with diff config options
-   * @param {Router["options"]} oldOpts oldRouter
-   * @param {Router["options"]} newOpts newROuter
-   * @param {string} [parentPath]
-   * @returns {Object}
-   */
-  normalizeOptions(oldOpts, newOpts, parentPath) {
-    const { routes: oldRoutes = [], ...oldProps } = oldOpts;
-    const { routes: newRoutes = [], ...newProps } = newOpts;
-
-    return Object.assign(
-      {
-        routes: this.mergeRoutes(oldRoutes, newRoutes, parentPath)
-      },
-      newProps,
-      oldProps
-    )
-  }
-
-  /**
-   * mergeRoutes
-   * @param {Array<Route>} oldRoutes
-   * @param {Array<Route>} newRoutes
-   * @param {string} [parentPath]
-   * @returns {Array<Route>} oldRoutes
-   */
-  mergeRoutes(oldRoutes, newRoutes, parentPath) {
-    const needMatchPath = parentPath;
-
-    newRoutes.forEach((route) => {
-      if (isString(route.parentPath)) {
-        parentPath = route.parentPath;
-        delete route.parentPath;
-      } else {
-        parentPath = needMatchPath;
+      if (route.path === path) {
+        return route
       }
 
-      if (isString(parentPath)) {
-        if (parentPath === '') {
-          oldRoutes.push(route);
-        } else {
-          const oldRoute = findRoute(oldRoutes, parentPath);
-          let path = route.path;
-
-          if (oldRoute) {
-(oldRoute.children || (oldRoute.children = [])).push(
-              Object.assign({}, route, {
-                path:
-                  parentPath && path.startsWith('/')
-                    ? (path = path.replace(/^\/*/, ''))
-                    : path /* fix: @issue that nested paths that start with `/` will be treated as a root path */
-              })
-            );
-          }
-        }
-      } else {
-        oldRoutes.push(route);
-      }
-    });
-
-    return oldRoutes
-  }
-
-  /**
-   * @description DFS 刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
-   * @param {Array<Route>} routes
-   * @param {String} [parentPath]
-   *  1. from method calls: addRoutes(routes, parentPath)
-   *  2. from route property: { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
-   */
-  refreshAndCheckState(routes, parentPath) {
-    routes.forEach(
-      ({ path, parentPath: selfParentPath, name, children, childrenApps }) => {
-        /* 优先匹配 route self parentPath */
-        if (selfParentPath) {
-          path = this.genParentPath(path, selfParentPath, name);
-        } else if (parentPath) {
-          path = this.genParentPath(path, parentPath, name);
-        }
-
-        if (path) {
-          if (!this.pathExists(path)) {
-            this.pathList.push(path);
-          } else {
-            EnhancedRouter.warn(`The path ${path} in pathList has been existed`);
-          }
-        }
-
-        if (name) {
-          if (!this.nameExists(name)) {
-            this.pathMap[name] = path;
-          } else {
-            EnhancedRouter.warn(`The name ${name} in pathMap has been existed`);
-          }
-        }
-
-        // if childrenApps exists so records it with its fullPath
-        if (childrenApps) {
-[].concat(childrenApps).forEach((app) => {
-            if (typeof app === 'object') {
-              const [appName, appPath] = Object.entries(app).shift();
-
-              this.appsMap[completePath(appPath, path)] = appName;
-            } else {
-              this.appsMap[completePath(app, path)] = name;
-            }
-          });
-        }
-
-        if (children && children.length) {
-          // @ts-ignore
-          return this.refreshAndCheckState(children, path)
-        }
-      }
-    );
-  }
-
-  genParentPath(path, parentPath, name) {
-    if (this.pathExists(parentPath)) {
-      return (path = completePath(path, parentPath))
-    } else {
-      EnhancedRouter.warn(
-        `Cannot found the parent path ${parentPath} ${
-          name ? 'of ' + name : ''
-        } in Vue-MFE MasterRouter`
-      );
-      return ''
-    }
-  }
-
-  pathExists(path) {
-    return this.pathList.includes(path)
-  }
-
-  nameExists(name) {
-    return this.pathMap[name]
-  }
-
-  getChildrenApps(path) {
-    let apps = this.appsMap[path];
-
-    /**
-     * 需要处理这种情况的路径例： ‘/path/:var’，'/wf/:projectSysNo/form/design'
-     * 路径不是固定 string ‘/a/b’，所以无法直接通过 {key: val} 映射得到对应的结果
-     * 因此引入了 pathToRegExp 这个 lib 来处理这种情况，如果 reg.test(path)
-     * 则认为匹配成功
-     */
-    if (!apps) {
-      const key = findRightKey(this.appsMap, path);
-
-      if (key) {
-        apps = this.appsMap[key];
+      if (route.children && (route = findRoute(route.children, path))) {
+        return route
       }
     }
-
-    if (apps) {
-      return [].concat(apps)
-    }
-
-    return null
-  }
-
-  findRoute(routes, route) {
-    let path = (isString(route) && route) || (isObject(route) && route.path);
-    return (path && findRoute(routes || this.routes, path)) || null
   }
 }
 
-let _Vue;
+/**
+ * isRoute
+ * @param {Route} obj
+ */
+function isRoute(obj) {
+  return obj && isObject(obj) && obj.path && obj.component
+}
+
+const LOAD_ERROR_HAPPENED = -1;
+const LOAD_DUPLICATE_WITHOUT_PATH = -2;
+const LOAD_APP_INIT_FAILED = -3;
+
+
+var ERROR_CODE = Object.freeze({
+	LOAD_ERROR_HAPPENED: LOAD_ERROR_HAPPENED,
+	LOAD_DUPLICATE_WITHOUT_PATH: LOAD_DUPLICATE_WITHOUT_PATH,
+	LOAD_APP_INIT_FAILED: LOAD_APP_INIT_FAILED
+});
+
+const LOAD_START = 'load-start';
+const LOAD_SUCCESS = 'load-success';
+const LOAD_ERROR = 'load-error';
+
+
+var EVENT_TYPE = Object.freeze({
+	LOAD_START: LOAD_START,
+	LOAD_SUCCESS: LOAD_SUCCESS,
+	LOAD_ERROR: LOAD_ERROR
+});
 
 /**
- * @class VueMfe
- * @description Vue micro front-end Centralized Controller
+ * @typedef {import('../index').Route} Route
+ * @typedef {import('../index').Router} Router
+ * @typedef {import('vue').default} VueComponent
+ *
+ * install
+ * @param {{ name: string, next?: Function, to?: {}, app?: VueComponent }} args
  */
-class VueMfe extends Observer {
-  static log() {
-    return getLogger(VueMfe.name)(arguments)
+const install$1 = (args) => {
+  const { name, next, to } = args;
+
+  if (isInstalled(name)) {
+    return true
   }
 
-  static warn() {
-    return getWarning(VueMfe.name)(arguments)
-  }
+  const app = getRootApp();
+
+  setAppStatus(name, START);
+  app.$emit(LOAD_START, args);
+
+  const handleSuccess = () => {
+    setAppStatus(name, SUCCESS);
+    app.$emit(LOAD_SUCCESS, args);
+
+    // After apply mini app routes, i must to force next(to)
+    // instead of next(). next() do nothing... bug???
+    next && to && next(to);
+  };
 
   /**
-   * @description To support a new Vue options `mfe` when Vue instantiation
-   * see https://github.com/vuejs/vuex/blob/dev/src/mixin.js
-   * @param {import('vue').VueConstructor} Vue
+   * handleError
+   * @param {Error|string} error
    */
-  static install(Vue) {
+  const handleError = (error) => {
+    if (!(error instanceof Error)) error = new Error(error);
     // @ts-ignore
-    if (VueMfe.install.installed && _Vue === Vue) return
-    // @ts-ignore
-    VueMfe.install.installed = true;
+    if (!error.code) error.code = LOAD_ERROR_HAPPENED;
 
-    _Vue = Vue;
+    setAppStatus(name, FAILED);
+    app.$emit(LOAD_ERROR, error, args); // error-first like node?! 😊
 
-    const version = Number(Vue.version.split('.')[0]);
-
-    if (version >= 2) {
-      Vue.mixin({ beforeCreate: initVueMfe });
-    } else {
-      // override init and inject vuex init procedure
-      // for 1.x backwards compatibility.
-      const _init = Vue.prototype._init;
-      Vue.prototype._init = function(options = {}) {
-        options.init = options.init
-          ? [initVueMfe].concat(options.init)
-          : initVueMfe;
-        _init.call(this, options);
-      };
-    }
-
-    function initVueMfe() {
-      const options = this.$options;
-      // store injection
-      if (options.mfe) {
-        this.$mfe =
-          typeof options.mfe === 'function' ? options.mfe() : options.mfe;
-      } else if (options.parent && options.parent.$mfe) {
-        this.$mfe = options.parent.$mfe;
-      }
-    }
-  }
+    next && next(false); // stop navigating to next route
+  };
 
   /**
-   * @typedef {import('vue-router').RouteConfig} VueRoute
-   * @typedef {Object} EnhancedRoute
-   * @property {string} parentPath The nested parent path
-   * @property {string|Array<string>} childrenApps The nested children app name or names array
-   * @typedef {VueRoute & EnhancedRoute} Route
-   *
-   * @typedef {import('vue-router').default} VueRouter
-   * @typedef {Object} EnhancedRouterRef
-   * @property {import('vue-router').RouteConfig} options
-   * @property {Object} matcher
-   * @typedef {VueRouter & EnhancedRouterRef} Router
+   * vue-mfe v2.0 不再由上层执行 AppEntry 的代码，改由子应用内部自己
+   * 调用工厂方法 createSubApp 传入配置，再完成后续的一系列初始化工作
    */
-  constructor(opts = {}) {
-    super();
-
-    // Auto install if it is not done yet and `window` has `Vue`.
-    // To allow users to avoid auto-installation in some cases,
-    // this code should be placed here.
-    if (
-      /* eslint-disable-next-line no-undef */
-      // @ts-ignore
-      !Vue &&
-      typeof window !== 'undefined' &&
-      // @ts-ignore
-      window.Vue &&
-      // @ts-ignore
-      !VueMfe.install.installed
-    ) {
-      // @ts-ignore
-      VueMfe.install(window.Vue);
-    }
-
-    if (!opts || !opts.router || !(opts.router instanceof VueRouter)) {
-      VueMfe.warn(
-        'Must pass the router property in "Vue.use(VueMfe, { router, config })"'
-      );
-    }
-
-    const { router, ...config } = opts;
-
-    this.router = router;
-    this.config = Object.assign({}, VueMfe.DEFAULTS, config);
-    this.installedApps = {};
-    this.helpers = new EnhancedRouter(this.router);
-    this.lazyloader = new Lazyloader().setConfig(this.config);
-
-    this._init();
-  }
-
-  _init() {
-    this.router.beforeEach((to, from, next) => {
-      // when none-matched path
-      if (
-        to.matched.length === 0 ||
-        this.router.match(to.path).matched.length === 0
-      ) {
-        const appName = this._getPrefixName(to);
-        const args = { name: appName, to, from, next };
-
-        if (this.isInstalled(appName)) {
-          const childrenApps = this.helpers.getChildrenApps(
-            to.path || to.fullPath
-          );
-
-          if (childrenApps && childrenApps.length) {
-            return this._installChildrenApps(childrenApps, args)
-          } else {
-            const error = new Error(
-              `${appName} has been installed but it has no any path ${to.path}`
-            );
-            // @ts-ignore
-            error.code = VueMfe.ERROR_CODE.LOAD_DUPLICATE_WITHOUT_PATH;
-
-            this.emit('error', error, args);
-          }
-        } else {
-          return this.installApp(args)
-        }
-      } else {
-        return next()
-      }
-    });
-  }
-
-  /**
-   * import
-   * @description 解析传入的名称获取应用前缀，懒加载应用并返回解析后的 module 内部变量
-   * @tutorial
-   *  1. 远程组件内部必须自包含样式
-   *  2. 远程组件同样支持分片加载
-   *  3. 可以引入所有被暴露的模块
-   * @param {string} name appName+delimiter+[moduleName?]+componentName
-   * @param {string} delimiter 可自定义配置的分隔符
-   * @example 引入特定 appName 应用下特定 moduleName 下特定 componentName
-   *  ```js
-   *    const LazyComponent = mfe.import('appName.moduleName.componentName')
-   *  ```
-   * @example 引入 workflow 下入口文件暴露出的 FlowLayout 组件，wf 为 appName，FlowLayout 为 portal.entry.js module 暴露出的变量
-   *  ```js
-   *    const FlowLayout = mfe.import('wf.components.FlowLayout')
-   *  ```
-   */
-  import(name, delimiter = '.') {
-    const appName = getPrefixAppName(name, delimiter);
-    const keyPath = name
-      .slice(appName.length + delimiter.length)
-      .replace(delimiter, '.');
-
-    return (
-      appName &&
-      this._loadAppEntry(appName).then((module) => {
-        const component = getPropVal(module, keyPath);
-
-        if (isFunction(component)) {
-          return component()
-        } else {
-          return component
-        }
-      })
-    )
-  }
-
-  isInstalled(route) {
-    let name = route;
-
-    if (isObject(route) && /\//.exec(route.path)) {
-      name = this._getPrefixName(route);
-    } else if (isString(route) && /\//.exec(route)) {
-      name = this._getPrefixNameByDelimiter(route, '/');
-    }
-
-    return this.installedApps[name] === VueMfe.LOAD_STATUS.SUCCESS
-  }
-
-  preinstall(name) {
-    return name && this.installApp({ name })
-  }
-
-  installApp(args) {
-    const { name, next, to } = args;
-
-    if (this.isInstalled(name)) {
-      return true
-    }
-
-    this.installedApps[name] = VueMfe.LOAD_STATUS.START;
-    this.emit('start', args);
-
-    /**
-     * handleSuccess
-     * @param {boolean} success
-     */
-    const handleSuccess = (success) => {
-      VueMfe.log(`install app ${name} success`, success);
-
-      if (success) {
-        this.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS;
-        // After apply mini app routes, i must to force next(to)
-        // instead of next(). next() do nothing... bug???
-        next && to && next(to);
-
-        this.emit('end', args);
-      }
-
-      return success
-    };
-
-    /**
-     * handleError
-     * @param {Error|string} error
-     */
-    const handleError = (error) => {
-      if (!(error instanceof Error)) error = new Error(error);
-      // @ts-ignore
-      if (!error.code) error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED;
-
-      this.installedApps[name] = VueMfe.LOAD_STATUS.FAILED;
-      next && next(false); // stop navigating to next route
-
-      this.emit('error', error, args); // error-first like node?! 😊
-    };
-
-    return this._loadAppEntry(args)
-      .then((module) => this._executeAppEntry(module))
-      .then((routes) => this._installAppModule(routes, name))
+  return (
+    load(name)
+      .then((module) => installModule(module))
+      // .then((routes) => installAppModule(routes, name))
       .then(handleSuccess)
       .catch(handleError)
+  )
+};
+
+/**
+ * installModule
+ * @param {*} module
+ */
+function installModule(module) {
+  if (isObject(module) && isRoute(module)) {
+    return getRouter().addRoutes([module])
   }
 
-  /**
-   * @param {string|{name: string}} name
-   * @returns {Promise<AppModule>}
-   */
-  _loadAppEntry(name) {
-    return this.lazyloader.load(typeof name === 'string' ? { name } : name)
+  if (isArray(module) && module.every(isRoute)) {
+    return getRouter().addRoutes(module)
   }
 
+  const { init, routes, parentPath } = resolveModule(module);
+  const { parentPath: globalParentPath } = getConfig();
+
+  return Promise.resolve(isFunction(init) && init(getRootApp())).then(() => {
+    // @ts-ignore
+    getRouter().addRoutes(routes, parentPath || globalParentPath);
+  })
+}
+
+const appMap = {};
+
+const register = (apps, path) => {
+  if (apps) {
+    ([].concat(apps)).forEach((app) => {
+      if (typeof app === 'object') {
+        const appKeys = Object.keys(app);
+        appKeys.forEach((appName) => {
+          const appPath = app[appName];
+
+          appMap[completePath(appPath, path)] = appName;
+        });
+      } else {
+        appMap[completePath(app, path)] = name;
+      }
+    });
+  }
+};
+
+const getApp = (path) => {
+  let apps = appMap[path];
+
   /**
-   * _executeAppEntry
-   * @description To executes the ESM/UMD app module
-   * @typedef {import('vue').Component} VueComponent
-   * @typedef {(app: VueComponent)=>Promise<Route[]>|Route[]|{init: (app: VueComponent)=>Promise<boolean>, routes: Route[]}} AppModule
-   * @param {AppModule} module
-   * @returns {Promise<Route[]>}
-   * @summary
-   *  1. module is a init function
-   *    module: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
-   *  2. module is an array of routes
-   *    module: Array<Route>
-   *  3. module is an object with property 'init' and 'routes'
-   *    module: { init: Function, routes: Array<Route> }
+   * 需要处理这种情况的路径例： ‘/path/:var’，'/wf/:projectSysNo/form/design'
+   * 路径不是固定 string ‘/a/b’，所以无法直接通过 {key: val} 映射得到对应的结果
+   * 因此引入了 pathToRegExp 这个 lib 来处理这种情况，如果 reg.test(path)
+   * 则认为匹配成功
    */
-  _executeAppEntry(module) {
-    module = resolveModule(module);
+  if (!apps) {
+    const key = findMatchedName(appMap, path);
 
-    /** @type {VueComponent}  */
-    const app = this.router && this.router.app;
-
-    if (isFunction(module)) {
-      // routes: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
-      // @ts-ignore
-      return Promise.resolve(module(app))
-    } else if (isArray(module)) {
-      // module: Array<Route>
-      // @ts-ignore
-      return module
-    } else if (isObject(module)) {
-      // module: { init: Promise<T>.then((success: boolean) => boolean), routes: Array<Route> }
-      // @ts-ignore
-      return isFunction(module.init) && Promise.resolve(module.init(app))
+    if (key) {
+      apps = appMap[key];
     }
   }
 
-  /**
-   * @param {Route[]} routes
-   * @param {string} name
-   * @throws {Error}
-   */
-  _installAppModule(routes, name) {
-    if (isArray(routes)) {
-      if (routes.length) {
-        // @ts-ignore
-        this.helpers.addRoutes(routes, this.config.parentPath);
-        return true
-      } else {
-        VueMfe.warn('`Route[]` has no any valid item');
+  if (apps) {
+    return [].concat(apps)
+  }
+
+  return null
+};
+
+const installApps = (apps) => {
+  const promises = apps.map((name) => install$1({ name }));
+
+  return Promise.all(promises).then((res) => {
+    return res.every(Boolean)
+  })
+};
+
+const pathList = [];
+const pathMap = {};
+
+const pathExists = (path) => {
+  return pathList.includes(path)
+};
+
+const nameExists = (name) => {
+  return pathMap[name]
+};
+
+const genParentPath = (path, parentPath, name) => {
+  if (pathExists(parentPath)) {
+    return (path = completePath(path, parentPath))
+  } else {
+    warn(
+      `Cannot found the parent path ${parentPath} ${
+        name ? 'of ' + name : ''
+      } in router`
+    );
+    return ''
+  }
+};
+
+/**
+ * @description DFS 刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
+ * @typedef {import('../../index').Route} Route
+ * @param {Array<Route>} routes
+ * @param {String} [parentPath]
+ *  1. from method calls: addRoutes(routes, parentPath)
+ *  2. from route property: { path: '/bar', parentPath: '/foo', template: '<a href="/foo/bar">/foo/bar</a>' }
+ */
+function refresh(routes, parentPath) {
+  routes.forEach(
+    ({ path, parentPath: selfParentPath, name, children, childrenApps }) => {
+      /* 优先级 route.parentPath > addRouter(routes, parentPath) > VueMfe.defaultConfig.parentPath */
+      if (selfParentPath) {
+        path = genParentPath(path, selfParentPath, name);
+      } else if (parentPath) {
+        path = genParentPath(path, parentPath, name);
       }
 
-      return false
-    } else {
-      let error = new Error(`Module ${name} initialize failed.`);
-      if (routes instanceof Error) error = routes;
+      if (path) {
+        if (!pathExists(path)) {
+          pathList.push(path);
+        } else {
+          warn(`The path ${path} in pathList has been existed`);
+        }
+      }
 
-      // @ts-ignore
-      error.code = VueMfe.ERROR_CODE.LOAD_APP_INIT_FAILED;
-      VueMfe.warn(error);
+      if (name) {
+        if (!nameExists(name)) {
+          pathMap[name] = path;
+        } else {
+          warn(`The name ${name} in pathMap has been existed`);
+        }
+      }
 
-      return false
+      // if childrenApps exists records it with its fullPath
+      register(childrenApps, path);
+
+      if (children && children.length) {
+        // @ts-ignore
+        return refresh(children, path)
+      }
     }
-  }
+  );
 
-  _installChildrenApps(apps, { next, to }) {
-    const allPromises = apps.map((name) => this.installApp({ name }));
-
-    return Promise.all(allPromises)
-      .then((res) => {
-        return res.every(Boolean)
-      })
-      .then((success) => {
-        return success && next && to && next(to)
-      })
-  }
-
-  /**
-   * @description get the domain-app prefix name by current router and next route
-   * @param {VueRoute} route
-   * @returns {string} name
-   */
-  _getPrefixName(route) {
-    return (
-      // @ts-ignore
-      route.domainName ||
-      (route.name && route.name.includes('.')
-        ? this._getPrefixNameByDelimiter(route.name, '.')
-        : this._getPrefixNameByDelimiter(route.path, '/'))
-    )
-  }
-
-  _getPrefixNameByDelimiter(str, delimiter) {
-    return (
-      (this.config.ignoreCase ? str.toLowerCase() : str)
-        .split(delimiter)
-        /* filter all params form route to get right name */
-        .filter(
-          (s) => !Object.values(this.router.currentRoute.params).includes(s)
-        )
-        .filter(Boolean)
-        .map((s) => s.trim())
-        .shift()
-    )
+  if (isDev) {
+    // eslint-disable-next-line no-console
+    console.log(pathList);
+    // eslint-disable-next-line no-console
+    console.log(pathMap);
   }
 }
 
-VueMfe.version = '1.0.4';
-VueMfe.DEFAULTS = {
-  ignoreCase: true,
-  parentPath: null,
-  getNamespace: (name) => `__domain__app__${name}`
-};
-VueMfe.LOAD_STATUS = {
-  SUCCESS: 1,
-  START: 0,
-  FAILED: -1
-};
-VueMfe.ERROR_CODE = {
-  LOAD_ERROR_HAPPENED: VueMfe.LOAD_STATUS.FAILED,
-  LOAD_DUPLICATE_WITHOUT_PATH: -2,
-  LOAD_APP_INIT_FAILED: -3
+/**
+ * @typedef {import('../../index').Router} Router
+ * @typedef {import('../../index').Route} Route
+ */
+
+/**
+ * addRoutes
+ * @description Add new routes into current router, and supports dynamic nest
+ * @see
+ *  + [Dynamically add child routes to an existing route](https://github.com/vuejs/vue-router/issues/1156)
+ *  + [Feature request: replace routes dynamically](https://github.com/vuejs/vue-router/issues/1234#issuecomment-357941465)
+ * @param {Array<Route>} newRoutes VueRoute route option
+ * @param {string} [parentPath]
+ * @param {Array<Route>} [oldRoutes]
+ */
+function addRoutes(newRoutes, parentPath, oldRoutes) {
+  // before merge new routes we need to check them out does
+  // any path or name whether duplicate in old routes
+  refresh(newRoutes, parentPath);
+
+  // reset current router's matcher with merged routes
+  getRouter().matcher = new VueRouter(
+    normalizeOptions(
+      // @ts-ignore
+      adaptRouterOptions(oldRoutes || getRouter()),
+      { routes: newRoutes },
+      parentPath
+    )
+    // @ts-ignore
+  ).matcher;
+}
+
+/**
+ * @param {Route[]|Router} routesOrRouter
+ */
+function adaptRouterOptions(routesOrRouter) {
+  if (routesOrRouter) {
+    if (routesOrRouter instanceof VueRouter) {
+      return routesOrRouter.options
+    } else if (isArray(routesOrRouter)) {
+      return { routes: routesOrRouter }
+    }
+  }
+
+  return {}
+}
+
+/**
+ * @description normalize the options between oldRouter and newRouter with diff config options
+ * @param {Router["options"]} oldOpts oldRouter
+ * @param {Router["options"]} newOpts newROuter
+ * @param {string} [parentPath]
+ * @returns {Object}
+ */
+function normalizeOptions(oldOpts, newOpts, parentPath) {
+  const { routes: oldRoutes = [], ...oldProps } = oldOpts;
+  const { routes: newRoutes = [], ...newProps } = newOpts;
+
+  return Object.assign(
+    {
+      routes: mergeRoutes(oldRoutes, newRoutes, parentPath)
+    },
+    newProps,
+    oldProps
+  )
+}
+
+/**
+ * mergeRoutes
+ * @param {Array<Route>} oldRoutes
+ * @param {Array<Route>} newRoutes
+ * @param {string} [parentPath]
+ * @returns {Array<Route>} oldRoutes
+ */
+function mergeRoutes(oldRoutes, newRoutes, parentPath) {
+  const needMatchPath = parentPath;
+
+  newRoutes.forEach((route) => {
+    if (isString(route.parentPath)) {
+      parentPath = route.parentPath;
+      delete route.parentPath;
+    } else {
+      parentPath = needMatchPath;
+    }
+
+    if (isString(parentPath)) {
+      if (parentPath === '') {
+        oldRoutes.push(route);
+      } else {
+        const oldRoute = findRoute(oldRoutes, parentPath);
+        let path = route.path;
+
+        if (oldRoute) {
+          (oldRoute.children || (oldRoute.children = [])).push(
+            Object.assign({}, route, {
+              path:
+                parentPath && path.startsWith('/')
+                  ? (path = path.replace(/^\/*/, ''))
+                  : path /* fix: @issue that nested paths that start with `/` will be treated as a root path */
+            })
+          );
+        }
+      }
+    } else {
+      oldRoutes.push(route);
+    }
+  });
+
+  return oldRoutes
+}
+
+/**
+ * getAppPrefix
+ * @param {string|Object} refOrStr
+ */
+function getAppPrefix(refOrStr) {
+  if (isString(refOrStr)) {
+    return getFirstWord(refOrStr)
+  }
+
+  if (isObject(refOrStr)) {
+    return refOrStr.prefix
+  }
+}
+
+/**
+ * registerHook
+ * @param {import('vue-router').default} router
+ */
+function registerHook(router) {
+  // 处理 none-matched route 并尝试去安装和调用
+  router.beforeEach(function handleUnmatchableRoute(to, from, next) {
+    // @ts-ignore
+    if (to.matched.length === 0 || router.match(to.path).matched.length === 0) {
+      const prefix = getAppPrefix(to.fullPath || to.path);
+      const args = { name: prefix, to, from, next };
+
+      if (isInstalled(prefix)) {
+        const children = getApp(to.fullPath || to.path);
+
+        if (children && children.length) {
+          return installChildren(children, args)
+        } else {
+          loadAppDuplicate(prefix, to);
+        }
+      } else {
+        return install$1(args)
+      }
+    } else {
+      return next()
+    }
+  });
+}
+
+function installChildren(children, { next, to }) {
+  return installApps(children)
+    .then((success) => success && next && to && next(to))
+    .catch((error) => {
+      // eslint-disable-next-line no-console
+      console.log('error: ', error);
+      // this.emit('error', error, args)
+    })
+}
+
+function loadAppDuplicate(prefix, to) {
+  const error = new Error(
+    `${prefix} has been installed but it has no any path like ${to.path}`
+  );
+  // @ts-ignore
+  error.code = LOAD_DUPLICATE_WITHOUT_PATH;
+
+  getRootApp().$emit(LOAD_ERROR, error);
+}
+
+/**
+ * init 刷新路由映射同时注入路由 hook
+ * @param {import('..').Router} router
+ */
+function init(router) {
+  if (router.addRoutes !== addRoutes) {
+    router.addRoutes = addRoutes.bind(router);
+  }
+
+  // @ts-ignore
+  refresh(router.options.routes);
+  registerHook(router);
+}
+
+const DEFAULT_CONFIG = {
+  // 是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
+  /** @type {boolean} */
+  sensitive: false,
+
+  // 默认的 parentPath => router.addRoutes(routes, parentPath)
+  /** @type {string} */
+  parentPath: '/',
+
+  // 获取资源的配置函数，支持同步和异步
+  /** @type {Object|Function} */
+  resources: () => {},
 };
 
-export default VueMfe;
+/**
+ * @typedef {import('vue-router').default} VueRouter
+ * @typedef {import('vue-router').RouteConfig} VueRoute
+ *
+ * @typedef {Object} VueMfeRoute
+ * @property {string} [parentPath] The nested parent path
+ * @property {string|Array<string>} [childrenApps] The nested children app name or name array
+ * @typedef {VueRoute & VueMfeRoute} Route
+ *
+ * @typedef {Object} VueMfeRouter
+ * @property {import('vue-router').RouterOptions} [options]
+ * @property {{}} [matcher]
+ * @typedef {VueRouter & VueMfeRouter} Router
+ *
+ * @typedef {Object<string,{}>|Object<string, string[]>|Object<string, {}[]>} Resource
+ *
+ * @callback ResourcesFn
+ * @returns {Resource|Resource[]|Promise<Resource>}
+ * @typedef {ResourcesFn|Resource|Resource[]} Resources
+ *
+ * @typedef AppConfig
+ * @property {Router} router 主应用 VueRouter 根实例
+ * @property {boolean} [sensitive] 是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
+ * @property {string} [parentPath] default parent path
+ * @property {Resources} resources 获取资源的配置函数，支持同步/异步的函数/对象
+ *
+ * @param {AppConfig} config
+ *
+ * 1. 初始化路由，记录 rootApp
+ * 2. 添加钩子，拦截无匹配路由
+ * 3. 懒加载无匹配路由的 resources
+ */
+function createApp(config) {
+  // At fist, set the global config with wildcard key '*'
+  registerApp(Object.assign({}, DEFAULT_CONFIG, config));
+
+  // Then enhance router and register before-hook to intercept unmatchable route
+  init(config.router);
+}
+
+/**
+ * createSubApp
+ * @typedef {Object} SubAppConfig
+ * @property {string} prefix 子应用被监听的路径前缀
+ * @property {Route[]} routes 子应用需要被动态载入的路由
+ * @property {string} [name] 子应用中文名称
+ * @property {(app: Vue)=>boolean|Error|Promise<boolean|Error>} [init] 子应用初始化函数和方法
+ * @property {string} [parentPath] 子应用注册的嵌套父路径
+ * @property {Resources} [resources] 获取资源的配置函数，支持同步/异步的函数/对象
+ * @property {string} [globalVar] 入口文件 app.umd.js 暴露出的全部变量名称
+ * @property {Object<string, Function>} [components] 暴露出的所有组件
+ *
+ * @param {SubAppConfig} config
+ *
+ * 1. 安装子应用调用 createSubApp 方法
+ * 2. 调用 registerApp 刷新内部的维护的 configMap
+ * 3. 执行 SubApp 的 init(app) => void|boolean 方法，初始化项目的前置依赖
+ * 4. 初始化成功后返回 success 并安装子应用路由
+ * 5. next(to) 到具体的子路由，END
+ */
+function createSubApp(config) {
+  // required
+  if (!config.prefix) {
+    throw new Error('Missing property `prefix: string` in config')
+  }
+
+  // required
+  if (!config.routes) {
+    throw new Error('Missing property `routes: Route[]` in config')
+  }
+
+  registerApp(config);
+
+  return config
+}
+
+var index = {
+  version: '1.0.5',
+  lazy,
+  createApp,
+  createSubApp,
+  isInstalled,
+  EVENT_TYPE,
+  ERROR_CODE,
+  LOAD_STATUS
+}
+
+export default index;
+export { createApp, createSubApp };
