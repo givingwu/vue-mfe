@@ -1,300 +1,95 @@
-import {
-  isString,
-  isObject,
-  isArray,
-  isFunction,
-  getWarning,
-  getLogger,
-  resolveModule
-} from './utils'
-import VueRouter from 'vue-router'
-import Observer from './helpers/Observer'
-import Lazyloader from './helpers/Lazyloader'
-import EnhancedRouter from './helpers/EnhancedRouter'
-
-let _Vue
+import { lazy } from './core/lazy'
+import { registerApp } from './core/app/config'
+import { isInstalled } from './core/app/status'
+import { init as initRouter } from './core/init'
+import { DEFAULT_CONFIG } from './constants/DEFAULT_CONFIG'
+import * as EVENT_TYPE from './constants/EVENT_TYPE'
+import * as ERROR_CODE from './constants/ERROR_CODE'
+import * as LOAD_STATUS from './constants/LOAD_STATUS'
 
 /**
- * @class VueMfe
- * @description Vue micro front-end Centralized Controller
+ * @typedef {import('vue-router').default} VueRouter
+ * @typedef {import('vue-router').RouteConfig} VueRoute
+ *
+ * @typedef {Object} VueMfeRoute
+ * @property {string} [parentPath] The nested parent path
+ * @property {string|Array<string>} [childrenApps] The nested children app name or name array
+ * @typedef {VueRoute & VueMfeRoute} Route
+ *
+ * @typedef {Object} VueMfeRouter
+ * @property {import('vue-router').RouterOptions} [options]
+ * @property {{}} [matcher]
+ * @typedef {VueRouter & VueMfeRouter} Router
+ *
+ * @typedef {Object<string,{}>|Object<string, string[]>|Object<string, {}[]>} Resource
+ *
+ * @callback ResourcesFn
+ * @returns {Resource|Resource[]|Promise<Resource>}
+ * @typedef {ResourcesFn|Resource|Resource[]} Resources
+ *
+ * @typedef AppConfig
+ * @property {Router} router 主应用 VueRouter 根实例
+ * @property {boolean} [sensitive] 是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
+ * @property {string} [parentPath] default parent path
+ * @property {Resources} resources 获取资源的配置函数，支持同步/异步的函数/对象
+ *
+ * @param {AppConfig} config
+ *
+ * 1. 初始化路由，记录 rootApp
+ * 2. 添加钩子，拦截无匹配路由
+ * 3. 懒加载无匹配路由的 resources
  */
-export default class VueMfe extends Observer {
-  static log() {
-    return getLogger(VueMfe.name)(arguments)
-  }
+export function createApp(config) {
+  // At fist, set the global config with wildcard key '*'
+  registerApp(Object.assign({}, DEFAULT_CONFIG, config))
 
-  static warn() {
-    return getWarning(VueMfe.name)(arguments)
-  }
-
-  /**
-   * @description To support a new Vue options `mfe` when Vue instantiation
-   * see https://github.com/vuejs/vuex/blob/dev/src/mixin.js
-   * @param {import('vue').default} Vue
-   */
-  static install(Vue) {
-    if (VueMfe.install.installed && _Vue === Vue) return
-    VueMfe.install.installed = true
-
-    _Vue = Vue
-
-    const version = Number(Vue.version.split('.')[0])
-
-    if (version >= 2) {
-      Vue.mixin({ beforeCreate: initVueMfe })
-    } else {
-      // override init and inject vuex init procedure
-      // for 1.x backwards compatibility.
-      const _init = Vue.prototype._init
-      Vue.prototype._init = function(options = {}) {
-        options.init = options.init
-          ? [initVueMfe].concat(options.init)
-          : initVueMfe
-        _init.call(this, options)
-      }
-    }
-
-    function initVueMfe() {
-      const options = this.$options
-      // store injection
-      if (options.mfe) {
-        this.$mfe =
-          typeof options.mfe === 'function' ? options.mfe() : options.mfe
-      } else if (options.parent && options.parent.$mfe) {
-        this.$mfe = options.parent.$mfe
-      }
-    }
-  }
-
-  constructor(opts = {}) {
-    super()
-
-    // Auto install if it is not done yet and `window` has `Vue`.
-    // To allow users to avoid auto-installation in some cases,
-    // this code should be placed here.
-    if (
-      /* eslint-disable-next-line no-undef */
-      !Vue &&
-      typeof window !== 'undefined' &&
-      window.Vue &&
-      !VueMfe.install.installed
-    ) {
-      VueMfe.install(window.Vue)
-    }
-
-    if (!opts || !opts.router || !(opts.router instanceof VueRouter)) {
-      VueMfe.warn(
-        'Must pass the router property in "Vue.use(VueMfe, { router, config })"'
-      )
-    }
-
-    const { router, ...config } = opts
-
-    this.router = router
-    this.config = Object.assign({}, VueMfe.DEFAULTS, config)
-    this.installedApps = {}
-
-    this._init()
-  }
-
-  _init() {
-    this.helpers = new EnhancedRouter(this.router)
-    this.lazyloader = new Lazyloader().setConfig(this.config)
-
-    this.router.beforeEach((to, from, next) => {
-      if (
-        to.matched.length === 0 ||
-        this.router.match(to.path).matched.length === 0
-      ) {
-        const appName = this._getPrefixName(to)
-        const args = { name: appName, to, from, next }
-
-        if (this.isInstalled(appName)) {
-          const error = new Error(
-            `${appName} has been installed but it does not have path ${to.path}`
-          )
-          error.code = VueMfe.ERROR_CODE.LOAD_DUPLICATE_WITHOUT_PATH
-
-          this.emit('error', error, args)
-        } else {
-          this.installApp(args)
-        }
-      } else {
-        next()
-      }
-    })
-  }
-
-  installApp(args) {
-    const { name, next, to } = args
-
-    this.installedApps[name] = VueMfe.LOAD_STATUS.START
-    this.emit('start', args)
-
-    return this.lazyloader
-      .load(args)
-      .then((module) => {
-        VueMfe.log('install App module', module)
-
-        return this.installModule(module)
-      })
-      .then((success) => {
-        VueMfe.log(`install App ${name} success`, success)
-
-        if (success) {
-          this.installedApps[name] = VueMfe.LOAD_STATUS.SUCCESS
-
-          // After apply mini app routes, i must to force next(to)
-          // instead of next(). next() do nothing... bug???
-          next && to && next(to)
-          this.emit('end', args)
-        }
-      })
-      .catch((error) => {
-        if (!(error instanceof Error)) error = new Error(error)
-        if (!error.code) error.code = VueMfe.ERROR_CODE.LOAD_ERROR_HAPPENED
-        this.installedApps[name] = VueMfe.LOAD_STATUS.FAILED
-
-        next && next(false) // stop navigating to next route
-        this.emit('error', error, args)
-      })
-  }
-
-  /**
-   * installModule
-   * @description install ESM/UMD app module
-   * @param {Module} module
-   * @example
-   *  1. module is a init function
-   *    module: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
-   *  2. module is an array of routes
-   *    module: Array<Route>
-   *  3. module is an object with property 'init' and 'routes'
-   *    module: { init: Function, routes: Array<Route> }
-   */
-  installModule(module) {
-    module = resolveModule(module)
-
-    const router = this.router
-    const app = router.app || {}
-
-    // call init mini app (add routes mini app):
-    if (module) {
-      if (isFunction(module)) {
-        // routes: () => Promise<T>.then((routes: Array<Route> | boolean) => boolean)
-        return Promise.resolve(module(app)).then((routesOrBool) => {
-          return this._checkRoutes(routesOrBool)
-        })
-      } else if (isArray(module)) {
-        // module: Array<Route>
-        return this.addRoutes(module)
-      } else if (isObject(module)) {
-        // module: { init: Promise<T>.then((success: boolean) => boolean), routes: Array<Route> }
-        return (
-          isFunction(module.init) &&
-          Promise.resolve(module.init(app)).then((bool) => {
-            return bool === false || bool instanceof Error
-              ? this._checkRoutes(bool)
-              : this.addRoutes(module.routes)
-          })
-        )
-      }
-    } else {
-      return false
-    }
-  }
-
-  addRoutes(routes, parentPath) {
-    if (routes) {
-      if (routes.length) {
-        this.helpers.addRoutes(routes, parentPath || this.config.parentPath)
-
-        return true
-      } else {
-        VueMfe.warn('Routes has no any valid item')
-      }
-    } else {
-      VueMfe.warn(
-        'Must pass a valid "routes: Array<Route>" in "addRoutes" method'
-      )
-    }
-
-    return false
-  }
-
-  isInstalled(route) {
-    let name = route
-
-    if (isObject(route) && /\//.exec(route.path)) {
-      name = this._getPrefixName(route)
-    } else if (isString(route) && /\//.exec(route)) {
-      name = this._getPrefixNameByDelimiter(route, '/')
-    }
-
-    return this.installedApps[name] === VueMfe.LOAD_STATUS.SUCCESS
-  }
-
-  preinstall(name) {
-    return name && this.installApp({ name })
-  }
-
-  /**
-   * @description get the domain-app prefix name by current router and next route
-   * @param {VueRoute} route
-   * @returns {string} name
-   */
-  _getPrefixName(route) {
-    return (
-      route.domainName ||
-      (route.name && route.name.includes('.')
-        ? this._getPrefixNameByDelimiter(route.name, '.')
-        : this._getPrefixNameByDelimiter(route.path, '/'))
-    )
-  }
-
-  _getPrefixNameByDelimiter(str, delimiter) {
-    return (
-      (this.config.ignoreCase ? str.toLowerCase() : str)
-        .split(delimiter)
-        /* filter all params form router to get right name */
-        .filter(
-          (s) => !Object.values(this.router.currentRoute.params).includes(s)
-        )
-        .filter(Boolean)
-        .map((s) => s.trim())
-        .shift()
-    )
-  }
-
-  _checkRoutes(routesOrBool) {
-    if (routesOrBool) {
-      return this.addRoutes(routesOrBool)
-    } else {
-      if (routesOrBool instanceof Error) {
-        routesOrBool.code = VueMfe.ERROR_CODE.APP_INIT_FAILED
-        throw routesOrBool
-      } else {
-        VueMfe.warn('Module ' + name + ' initialize failed.')
-      }
-    }
-
-    return false
-  }
+  // Then enhance router and register before-hook to intercept unmatchable route
+  initRouter(config.router)
 }
 
-VueMfe.version = '__VERSION__'
-VueMfe.DEFAULTS = {
-  ignoreCase: true,
-  parentPath: null,
-  getNamespace: (name) => `__domain__app__${name}`
+/**
+ * createSubApp
+ * @typedef {Object} SubAppConfig
+ * @property {string} prefix 子应用被监听的路径前缀
+ * @property {Route[]} routes 子应用需要被动态载入的路由
+ * @property {string} [name] 子应用中文名称
+ * @property {(app: Vue)=>boolean|Error|Promise<boolean|Error>} [init] 子应用初始化函数和方法
+ * @property {string} [parentPath] 子应用注册的嵌套父路径
+ * @property {Resources} [resources] 获取资源的配置函数，支持同步/异步的函数/对象
+ * @property {string} [globalVar] 入口文件 app.umd.js 暴露出的全部变量名称
+ * @property {Object<string, Function>} [components] 暴露出的所有组件
+ *
+ * @param {SubAppConfig} config
+ *
+ * 1. 安装子应用调用 createSubApp 方法
+ * 2. 调用 registerApp 刷新内部的维护的 configMap
+ * 3. 执行 SubApp 的 init(app) => void|boolean 方法，初始化项目的前置依赖
+ * 4. 初始化成功后返回 success 并安装子应用路由
+ * 5. next(to) 到具体的子路由，END
+ */
+export function createSubApp(config) {
+  // required
+  if (!config.prefix) {
+    throw new Error('Missing property `prefix: string` in config')
+  }
+
+  // required
+  if (!config.routes) {
+    throw new Error('Missing property `routes: Route[]` in config')
+  }
+
+  registerApp(config)
+
+  return config
 }
-VueMfe.LOAD_STATUS = {
-  SUCCESS: 1,
-  START: 0,
-  FAILED: -1
-}
-VueMfe.ERROR_CODE = {
-  LOAD_ERROR_HAPPENED: VueMfe.LOAD_STATUS.FAILED,
-  LOAD_DUPLICATE_WITHOUT_PATH: -2,
-  APP_INIT_FAILED: -3
+
+export default {
+  version: '__VERSION__',
+  lazy,
+  createApp,
+  createSubApp,
+  isInstalled,
+  EVENT_TYPE,
+  ERROR_CODE,
+  LOAD_STATUS
 }

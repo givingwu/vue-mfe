@@ -1,5 +1,6 @@
+// @ts-nocheck
 /**
- * @description lazy load style form a remote url then returns a promise
+ * @description lazy load style from a remote url then returns a promise
  * @param {String} url remote-url
  * @return {Promise}
  */
@@ -37,7 +38,7 @@ export function lazyloadStyle(url) {
 }
 
 /**
- * @description lazy load script form a remote url then returns a promise
+ * @description lazy load script from a remote url then returns a promise
  * @param {String} url remote-url
  * @param {String} globalVar global variable key
  * @return {Promise}

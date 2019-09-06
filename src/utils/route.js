@@ -1,65 +1,34 @@
+import { isObject } from '../utils/type'
+
 /**
- * findRoute 深度优先递归遍历找到匹配 matchPath 的 Route
+ * findRoute DFS
  * @typedef {import('vue-router').RouteConfig} Route
  * @param {Array<Route>} routes
- * @param {String} matchPath
+ * @param {String} path
  * @returns {Route}
  */
-export function findRoute(routes = [], matchPath) {
-  let i = 0
-  let matchedRoute = null
-  const l = routes.length
+export function findRoute(routes = [], path) {
+  if (routes) {
+    let route
 
-  while (i < l) {
-    const route = routes[i]
-    const { path, children } = route
+    for (let i = 0; i < routes.length; i++) {
+      route = routes[i]
 
-    if (path === matchPath) {
-      /* 匹配路径 */
-      return route
-    } else if (children && children.length) {
-      /* 深度优先遍历，不匹配，但是有children，则递归children并返回匹配结果 */
-      matchedRoute = findRoute(children, matchPath)
-      i++ /* 自增当前集合索引i */
-    } else {
-      i++ /* 自增当前集合索引i */
-    }
+      if (route.path === path) {
+        return route
+      }
 
-    if (matchedRoute) {
-      return matchedRoute
+      if (route.children && (route = findRoute(route.children, path))) {
+        return route
+      }
     }
   }
 }
 
 /**
- * @description auto complete path with parent path
- * @param {string} path
- * @param {string} parentPath
- * @returns {string}
+ * isRoute
+ * @param {Route} obj
  */
-export function completePath(path, parentPath) {
-  if (parentPath === '/' && path !== '/' && path.startsWith('/')) {
-    return ensurePathSlash(path)
-  } else {
-    return ensurePathSlash(parentPath) + ensurePathSlash(path)
-  }
-}
-
-/**
- * ensurePathSlash
- * @param {string} path
- */
-export function ensurePathSlash(path) {
-  const trailingSlashRE = /\/?$/
-  path = path !== '/' ? path.replace(trailingSlashRE, '') : path
-
-  return path ? (ensureSlash(path) ? path : '/' + path) : '/'
-}
-
-/**
- * ensureSlash
- * @param {string} path
- */
-export function ensureSlash(path) {
-  return path.charAt(0) === '/'
+export function isRoute(obj) {
+  return obj && isObject(obj) && obj.path && obj.component
 }
