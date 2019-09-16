@@ -1,3 +1,4 @@
+import { resolveModule } from './install'
 import { registerApp, getConfig } from './app/config'
 import { getFirstWord } from '../utils/app'
 import { isFunction } from '../utils/type'
@@ -34,7 +35,7 @@ export function Lazy(url, delimiter = '.') {
   return (
     appName &&
     load(appName).then((module) => {
-      const component = getPropVal(module, keyPath)
+      const component = getPropVal(resolveModule(module), keyPath)
 
       if (isFunction(component)) {
         return component()

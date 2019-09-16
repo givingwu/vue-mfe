@@ -109,4 +109,4 @@ function installModule(module, name) {
  * @param {Module} module
  * @returns {Module&Function}
  */
-const resolveModule = (module) => (module && module.default) || module
+export const resolveModule = (module) => (module && module.default) || module
