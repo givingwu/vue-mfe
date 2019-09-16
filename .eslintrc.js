@@ -15,7 +15,7 @@ module.exports = {
     codeFrame: true
   },
   rules: {
-    indent: ['warning', 2],
+    indent: ['warn', 2],
     'linebreak-style': ['error', 'unix'],
     quotes: ['error', 'single'],
     // 这一行代码就是允许console.log 设置
