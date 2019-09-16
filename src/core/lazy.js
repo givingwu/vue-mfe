@@ -1,5 +1,4 @@
 import { registerApp, getConfig, getAppName } from './app/config'
-import { getPropVal } from '../utils/index'
 import { isFunction } from '../utils/type'
 import { load } from '../helpers/loader'
 
@@ -20,10 +19,10 @@ import { load } from '../helpers/loader'
  *    const FlowLayout = VueMfe.lazy('wf.components.FlowLayout')
  *  ```
  */
-export const lazy = (url) => {
+export function Lazy(url) {
   if (!getConfig()) {
     throw new Error(
-      'Before you calls `VueMfe.Lazy(url: string)` must setting its config use like `VueMfe.lazy.setConfig({ resource: Resources })`'
+      'Before you call `VueMfe.Lazy(url: string)` must set its config by `VueMfe.Lazy.setConfig({ resource: Resource[] })`'
     )
   }
 
@@ -44,6 +43,17 @@ export const lazy = (url) => {
   )
 }
 
-lazy.setConfig = function(config) {
-  registerApp(config)
+Lazy.setConfig = function(config) {
+  return registerApp(config)
+}
+
+/**
+ * getPropVal
+ * @param {Object} obj
+ * @param {string} key
+ */
+const getPropVal = (obj, key) => {
+  return key.split('.').reduce((o, k) => {
+    return o[k]
+  }, obj)
 }

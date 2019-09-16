@@ -1,13 +1,13 @@
-import { register } from '../app/children'
-import { warn } from '../../utils/index'
-import { isDev } from '../../utils/env'
 import {
   pathMap,
   pathList,
   pathExists,
   nameExists,
-  genParentPath,
+  genParentPath
 } from './path'
+import { registerChildren } from '../app/children'
+import { isDev } from '../../utils/env'
+import { warn } from '../../utils/index'
 
 /**
  * @description DFS 刷新路径 pathList 和 pathMap 并检查路由 path 和 name 是否重复
@@ -44,7 +44,7 @@ export function refresh(routes, parentPath) {
       }
 
       // if childrenApps exists records it with its fullPath
-      register(childrenApps, path)
+      registerChildren(childrenApps, path)
 
       if (children && children.length) {
         // @ts-ignore

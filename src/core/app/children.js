@@ -1,12 +1,11 @@
-import { completePath } from '../../utils/path'
-import { findMatchedName } from '../../utils/match'
 import { install as installApp } from '../install'
+import { completePath, findMatchedName } from '../../utils/path'
 
 const appMap = {}
 
-export const register = (apps, path) => {
+export const registerChildren = (apps, path) => {
   if (apps) {
-    ([].concat(apps)).forEach((app) => {
+    [].concat(apps).forEach((app) => {
       if (typeof app === 'object') {
         const appKeys = Object.keys(app)
         appKeys.forEach((appName) => {
@@ -21,7 +20,7 @@ export const register = (apps, path) => {
   }
 }
 
-export const getApp = (path) => {
+export const getChildrenApp = (path) => {
   let apps = appMap[path]
 
   /**
