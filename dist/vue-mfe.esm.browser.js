@@ -101,6 +101,7 @@ const registerApp = (prefix, config) => {
   return false
 };
 
+// @ts-ignore
 const isDev = "development" === 'development';
 // export const isMaster = true !== undefined
 // export const isPortal = !isMaster || undefined !== undefined
@@ -116,38 +117,6 @@ const warn = function warning() {
     hasConsole && console.warn.apply(arguments);
   }
 };
-
-/**
- * @description resolve module whether ES Module or CommandJS module
- * @template Module
- * @property {Object} [default]
- * @param {Module & Object} module
- * @returns {*}
- */
-const resolveModule = (module) => (module && module.default) || module;
-
-/**
- * getPropVal
- * @param {Object} obj
- * @param {string} key
- */
-const getPropVal = (obj, key) => {
-  return key.split('.').reduce((o, k) => {
-    return o[k]
-  }, obj)
-};
-
-/**
- * getFirstWord
- * @param {string} str
- * @param {string} [delimiter]
- */
-const getFirstWord = (str, delimiter = '/') =>
-  str
-    .split(delimiter || '.')
-    .filter(Boolean)
-    .map((s) => s.trim())
-    .shift();
 
 // @ts-nocheck
 /**
@@ -373,10 +342,10 @@ const serialExecute = (promises) => {
  *    const FlowLayout = VueMfe.lazy('wf.components.FlowLayout')
  *  ```
  */
-const lazy = (url) => {
+function Lazy(url) {
   if (!getConfig()) {
     throw new Error(
-      'Before you calls `VueMfe.Lazy(url: string)` must setting its config use like `VueMfe.lazy.setConfig({ resource: Resources })`'
+      'Before you call `VueMfe.Lazy(url: string)` must set its config by `VueMfe.Lazy.setConfig({ resource: Resource[] })`'
     )
   }
 
@@ -395,22 +364,26 @@ const lazy = (url) => {
       }
     })
   )
+}
+
+Lazy.setConfig = function(config) {
+  return registerApp(config)
 };
 
-lazy.setConfig = function(config) {
-  registerApp(config);
+/**
+ * getPropVal
+ * @param {Object} obj
+ * @param {string} key
+ */
+const getPropVal = (obj, key) => {
+  return key.split('.').reduce((o, k) => {
+    return o[k]
+  }, obj)
 };
 
 const SUCCESS = 1;
 const START = 0;
 const FAILED = -1;
-
-
-var LOAD_STATUS = Object.freeze({
-	SUCCESS: SUCCESS,
-	START: START,
-	FAILED: FAILED
-});
 
 // 记录 app 加载状态
 const appStatus = {};
@@ -425,39 +398,6 @@ function isInstalled(prefix) {
 
 function setAppStatus(prefix, status) {
   return (appStatus[prefix] = status)
-}
-
-/**
- * @description auto complete path with parent path
- * @param {string} path
- * @param {string} parentPath
- * @returns {string}
- */
-function completePath(path, parentPath) {
-  if (parentPath === '/' && path !== '/' && path.startsWith('/')) {
-    return ensurePathSlash(path)
-  } else {
-    return ensurePathSlash(parentPath) + ensurePathSlash(path)
-  }
-}
-
-/**
- * ensurePathSlash
- * @param {string} path
- */
-function ensurePathSlash(path) {
-  const trailingSlashRE = /\/?$/;
-  path = path !== '/' ? path.replace(trailingSlashRE, '') : path;
-
-  return path ? (ensureSlash(path) ? path : '/' + path) : '/'
-}
-
-/**
- * ensureSlash
- * @param {string} path
- */
-function ensureSlash(path) {
-  return path.charAt(0) === '/'
 }
 
 /**
@@ -679,6 +619,63 @@ function findMatchedName(map, key) {
 }
 
 /**
+ * @description auto complete path with parent path
+ * @param {string} path
+ * @param {string} parentPath
+ * @returns {string}
+ */
+function completePath(path, parentPath) {
+  if (parentPath === '/' && path !== '/' && path.startsWith('/')) {
+    return ensurePathSlash(path)
+  } else {
+    return ensurePathSlash(parentPath) + ensurePathSlash(path)
+  }
+}
+
+/**
+ * ensurePathSlash
+ * @param {string} path
+ */
+function ensurePathSlash(path) {
+  const trailingSlashRE = /\/?$/;
+  path = path !== '/' ? path.replace(trailingSlashRE, '') : path;
+
+  return path ? (ensureSlash(path) ? path : '/' + path) : '/'
+}
+
+/**
+ * ensureSlash
+ * @param {string} path
+ */
+function ensureSlash(path) {
+  return path.charAt(0) === '/'
+}
+
+const pathList = [];
+const pathMap = {};
+
+const pathExists = (path) => {
+  return pathList.includes(path)
+};
+
+const nameExists = (name) => {
+  return pathMap[name]
+};
+
+const genParentPath = (path, parentPath, name) => {
+  if (pathExists(parentPath)) {
+    return (path = completePath(path, parentPath))
+  } else {
+    warn(
+      `Cannot found the parent path ${parentPath} ${
+        name ? 'of ' + name : ''
+      } in router`
+    );
+    return ''
+  }
+};
+
+/**
  * findRoute DFS
  * @typedef {import('vue-router').RouteConfig} Route
  * @param {Array<Route>} routes
@@ -713,25 +710,10 @@ function isRoute(obj) {
 
 const LOAD_ERROR_HAPPENED = -1;
 const LOAD_DUPLICATE_WITHOUT_PATH = -2;
-const LOAD_APP_INIT_FAILED = -3;
-
-
-var ERROR_CODE = Object.freeze({
-	LOAD_ERROR_HAPPENED: LOAD_ERROR_HAPPENED,
-	LOAD_DUPLICATE_WITHOUT_PATH: LOAD_DUPLICATE_WITHOUT_PATH,
-	LOAD_APP_INIT_FAILED: LOAD_APP_INIT_FAILED
-});
 
 const LOAD_START = 'load-start';
 const LOAD_SUCCESS = 'load-success';
 const LOAD_ERROR = 'load-error';
-
-
-var EVENT_TYPE = Object.freeze({
-	LOAD_START: LOAD_START,
-	LOAD_SUCCESS: LOAD_SUCCESS,
-	LOAD_ERROR: LOAD_ERROR
-});
 
 /**
  * @typedef {import('../index').Route} Route
@@ -783,7 +765,7 @@ const install$1 = (args) => {
    */
   return (
     load(name)
-      .then((module) => installModule(module))
+      .then((module) => installModule(module, name))
       // .then((routes) => installAppModule(routes, name))
       .then(handleSuccess)
       .catch(handleError)
@@ -792,9 +774,10 @@ const install$1 = (args) => {
 
 /**
  * installModule
- * @param {*} module
+ * @param {Module&Route&Route[]} module
+ * @param {string} [name]
  */
-function installModule(module) {
+function installModule(module, name) {
   if (isObject(module) && isRoute(module)) {
     return getRouter().addRoutes([module])
   }
@@ -803,20 +786,43 @@ function installModule(module) {
     return getRouter().addRoutes(module)
   }
 
-  const { init, routes, parentPath } = resolveModule(module);
+  const entry = resolveModule(module);
   const { parentPath: globalParentPath } = getConfig();
 
-  return Promise.resolve(isFunction(init) && init(getRootApp())).then(() => {
-    // @ts-ignore
-    getRouter().addRoutes(routes, parentPath || globalParentPath);
-  })
+  // 向前兼容，如果导出的是 `export default function initSubApp(rootApp): Route[] {}`
+  if (isObject(entry)) {
+    // 最新API，导出的是 `export default createSubApp({ init: Function, routes: Route[], parentPath: string })`
+    const { init, routes, parentPath } = entry;
+
+    return Promise.resolve(isFunction(init) && init(getRootApp())).then(() => {
+      // @ts-ignore
+      getRouter().addRoutes(routes, parentPath || globalParentPath);
+    })
+  } else if (isFunction(entry)) {
+    return Promise.resolve(entry(getRootApp())).then((routes) => {
+      // @ts-ignore
+      getRouter().addRoutes(routes, globalParentPath);
+    })
+  } else {
+    throw new Error(`
+      Cannot not found 'export default VueMfe.createSubApp({ prefix: ${name} })' in '${name}/src/portal.entry.js'
+    `)
+  }
 }
+
+/**
+ * @description resolve module whether ES or CommandJS module
+ * @typedef {{ default: *, [key: string]: * }} Module
+ * @param {Module} module
+ * @returns {Module&Function}
+ */
+const resolveModule = (module) => (module && module.default) || module;
 
 const appMap = {};
 
-const register = (apps, path) => {
+const registerChildren = (apps, path) => {
   if (apps) {
-    ([].concat(apps)).forEach((app) => {
+    [].concat(apps).forEach((app) => {
       if (typeof app === 'object') {
         const appKeys = Object.keys(app);
         appKeys.forEach((appName) => {
@@ -831,7 +837,7 @@ const register = (apps, path) => {
   }
 };
 
-const getApp = (path) => {
+const getChildrenApp = (path) => {
   let apps = appMap[path];
 
   /**
@@ -861,30 +867,6 @@ const installApps = (apps) => {
   return Promise.all(promises).then((res) => {
     return res.every(Boolean)
   })
-};
-
-const pathList = [];
-const pathMap = {};
-
-const pathExists = (path) => {
-  return pathList.includes(path)
-};
-
-const nameExists = (name) => {
-  return pathMap[name]
-};
-
-const genParentPath = (path, parentPath, name) => {
-  if (pathExists(parentPath)) {
-    return (path = completePath(path, parentPath))
-  } else {
-    warn(
-      `Cannot found the parent path ${parentPath} ${
-        name ? 'of ' + name : ''
-      } in router`
-    );
-    return ''
-  }
 };
 
 /**
@@ -922,7 +904,7 @@ function refresh(routes, parentPath) {
       }
 
       // if childrenApps exists records it with its fullPath
-      register(childrenApps, path);
+      registerChildren(childrenApps, path);
 
       if (children && children.length) {
         // @ts-ignore
@@ -1052,7 +1034,7 @@ function mergeRoutes(oldRoutes, newRoutes, parentPath) {
 
 /**
  * getAppPrefix
- * @param {string|Object} refOrStr
+ * @param {string|{}|*} refOrStr
  */
 function getAppPrefix(refOrStr) {
   if (isString(refOrStr)) {
@@ -1063,6 +1045,18 @@ function getAppPrefix(refOrStr) {
     return refOrStr.prefix
   }
 }
+
+/**
+ * getFirstWord
+ * @param {string} str
+ * @param {string} [delimiter]
+ */
+const getFirstWord = (str, delimiter = '/') =>
+  str
+    .split(delimiter || '.')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .shift();
 
 /**
  * registerHook
@@ -1077,7 +1071,7 @@ function registerHook(router) {
       const args = { name: prefix, to, from, next };
 
       if (isInstalled(prefix)) {
-        const children = getApp(to.fullPath || to.path);
+        const children = getChildrenApp(to.fullPath || to.path);
 
         if (children && children.length) {
           return installChildren(children, args)
@@ -1147,7 +1141,7 @@ const DEFAULT_CONFIG = {
  *
  * @typedef {Object} VueMfeRoute
  * @property {string} [parentPath] The nested parent path
- * @property {string|Array<string>} [childrenApps] The nested children app name or name array
+ * @property {string|Array<string>} [childrenApps] The nested children apps or name array
  * @typedef {VueRoute & VueMfeRoute} Route
  *
  * @typedef {Object} VueMfeRouter
@@ -1202,14 +1196,18 @@ function createApp(config) {
  * 5. next(to) 到具体的子路由，END
  */
 function createSubApp(config) {
-  // required
+  // required property
   if (!config.prefix) {
-    throw new Error('Missing property `prefix: string` in config')
+    throw new Error(
+      `Missing property 'prefix: string' in config \n${JSON.stringify(config)}`
+    )
   }
 
-  // required
+  // required property
   if (!config.routes) {
-    throw new Error('Missing property `routes: Route[]` in config')
+    throw new Error(
+      `Missing property 'routes: Route[]' in config \n${JSON.stringify(config)}`
+    )
   }
 
   registerApp(config);
@@ -1217,16 +1215,29 @@ function createSubApp(config) {
   return config
 }
 
-var index = {
+const VueMfe = {
   version: '1.0.5',
-  lazy,
+  Lazy,
   createApp,
   createSubApp,
-  isInstalled,
-  EVENT_TYPE,
-  ERROR_CODE,
-  LOAD_STATUS
+  isInstalled
+};
+
+// Auto install if it is not done yet and `window` has `Vue`.
+// To allow users to avoid auto-installation in some cases,
+if (
+  /* eslint-disable-next-line no-undef */
+  // @ts-ignore
+  typeof window !== 'undefined' &&
+  // @ts-ignore
+  window.Vue &&
+  // @ts-ignore
+  (!window.VueMfe || window.VueMfe !== VueMfe)
+) {
+  // install VueMfe to global context
+  // @ts-ignore
+  window.VueMfe = VueMfe;
 }
 
-export default index;
+export default VueMfe;
 export { createApp, createSubApp };
