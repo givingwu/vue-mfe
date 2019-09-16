@@ -19,9 +19,9 @@ export function getAppPrefix(refOrStr) {
  * @param {string} str
  * @param {string} [delimiter]
  */
-const getFirstWord = (str, delimiter = '/') =>
+export const getFirstWord = (str, delimiter = '/') =>
   str
-    .split(delimiter || '.')
+    .split(delimiter)
     .map((s) => s.trim())
     .filter(Boolean)
     .shift()
