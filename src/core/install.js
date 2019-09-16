@@ -34,6 +34,7 @@ export const install = (args) => {
     // After apply mini app routes, i must to force next(to)
     // instead of next(). next() do nothing... bug???
     next && to && next(to)
+    return true
   }
 
   /**

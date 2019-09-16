@@ -5,7 +5,7 @@ const appMap = {}
 
 export const registerChildren = (apps, path) => {
   if (apps) {
-    [].concat(apps).forEach((app) => {
+    ([].concat(apps)).forEach((app) => {
       if (typeof app === 'object') {
         const appKeys = Object.keys(app)
         appKeys.forEach((appName) => {
