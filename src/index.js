@@ -1,11 +1,8 @@
-import { lazy } from './core/lazy'
+import { Lazy } from './core/lazy'
 import { registerApp } from './core/app/config'
 import { isInstalled } from './core/app/status'
 import { init as initRouter } from './core/init'
 import { DEFAULT_CONFIG } from './constants/DEFAULT_CONFIG'
-import * as EVENT_TYPE from './constants/EVENT_TYPE'
-import * as ERROR_CODE from './constants/ERROR_CODE'
-import * as LOAD_STATUS from './constants/LOAD_STATUS'
 
 /**
  * @typedef {import('vue-router').default} VueRouter
@@ -13,7 +10,7 @@ import * as LOAD_STATUS from './constants/LOAD_STATUS'
  *
  * @typedef {Object} VueMfeRoute
  * @property {string} [parentPath] The nested parent path
- * @property {string|Array<string>} [childrenApps] The nested children app name or name array
+ * @property {string|Array<string>} [childrenApps] The nested children apps or name array
  * @typedef {VueRoute & VueMfeRoute} Route
  *
  * @typedef {Object} VueMfeRouter
@@ -68,14 +65,18 @@ export function createApp(config) {
  * 5. next(to) 到具体的子路由，END
  */
 export function createSubApp(config) {
-  // required
+  // required property
   if (!config.prefix) {
-    throw new Error('Missing property `prefix: string` in config')
+    throw new Error(
+      `Missing property 'prefix: string' in config \n${JSON.stringify(config)}`
+    )
   }
 
-  // required
+  // required property
   if (!config.routes) {
-    throw new Error('Missing property `routes: Route[]` in config')
+    throw new Error(
+      `Missing property 'routes: Route[]' in config \n${JSON.stringify(config)}`
+    )
   }
 
   registerApp(config)
@@ -83,13 +84,28 @@ export function createSubApp(config) {
   return config
 }
 
-export default {
+const VueMfe = {
   version: '__VERSION__',
-  lazy,
+  Lazy,
   createApp,
   createSubApp,
-  isInstalled,
-  EVENT_TYPE,
-  ERROR_CODE,
-  LOAD_STATUS
+  isInstalled
 }
+
+// Auto install if it is not done yet and `window` has `Vue`.
+// To allow users to avoid auto-installation in some cases,
+if (
+  /* eslint-disable-next-line no-undef */
+  // @ts-ignore
+  typeof window !== 'undefined' &&
+  // @ts-ignore
+  window.Vue &&
+  // @ts-ignore
+  (!window.VueMfe || window.VueMfe !== VueMfe)
+) {
+  // install VueMfe to global context
+  // @ts-ignore
+  window.VueMfe = VueMfe
+}
+
+export default VueMfe
