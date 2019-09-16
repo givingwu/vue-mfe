@@ -63,14 +63,6 @@ const getVarName = (prefix) => {
 };
 
 /**
- * getAppName
- * @param {string} prefix
- */
-const getAppName = (prefix) => {
-  return getConfig(prefix).name
-};
-
-/**
  * getConfig
  * @param {string} prefix
  * @returns {SubAppConfig}
@@ -100,6 +92,32 @@ const registerApp = (prefix, config) => {
 
   return false
 };
+
+/**
+ * getAppPrefix
+ * @param {string|{}|*} refOrStr
+ */
+function getAppPrefix(refOrStr) {
+  if (isString(refOrStr)) {
+    return getFirstWord(refOrStr)
+  }
+
+  if (isObject(refOrStr)) {
+    return refOrStr.prefix
+  }
+}
+
+/**
+ * getFirstWord
+ * @param {string} str
+ * @param {string} [delimiter]
+ */
+const getFirstWord = (str, delimiter = '/') =>
+  str
+    .split(delimiter)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .shift();
 
 // @ts-ignore
 const isDev = "development" === 'development';
@@ -333,6 +351,7 @@ const serialExecute = (promises) => {
  *  2. 远程组件同样支持分片加载
  *  3. 可以引入所有被暴露的模块
  * @param {string} url appName+delimiter+[moduleName?]+componentName
+ * @param {string} [delimiter] 分隔符
  * @example 引入特定 appName 应用下特定 moduleName 下特定 componentName
  *  ```js
  *    const LazyComponent = VueMfe.lazy('appName.moduleName.componentName')
@@ -342,15 +361,15 @@ const serialExecute = (promises) => {
  *    const FlowLayout = VueMfe.lazy('wf.components.FlowLayout')
  *  ```
  */
-function Lazy(url) {
+function Lazy(url, delimiter = '.') {
   if (!getConfig()) {
     throw new Error(
       'Before you call `VueMfe.Lazy(url: string)` must set its config by `VueMfe.Lazy.setConfig({ resource: Resource[] })`'
     )
   }
 
-  const appName = getAppName(url);
-  const keyPath = url.slice(appName.length + 1);
+  const appName = getFirstWord(url, delimiter);
+  const keyPath = url.slice(appName.length + delimiter.length);
 
   return (
     appName &&
@@ -742,6 +761,7 @@ const install$1 = (args) => {
     // After apply mini app routes, i must to force next(to)
     // instead of next(). next() do nothing... bug???
     next && to && next(to);
+    return true
   };
 
   /**
@@ -822,7 +842,7 @@ const appMap = {};
 
 const registerChildren = (apps, path) => {
   if (apps) {
-    [].concat(apps).forEach((app) => {
+    ([].concat(apps)).forEach((app) => {
       if (typeof app === 'object') {
         const appKeys = Object.keys(app);
         appKeys.forEach((appName) => {
@@ -1031,32 +1051,6 @@ function mergeRoutes(oldRoutes, newRoutes, parentPath) {
 
   return oldRoutes
 }
-
-/**
- * getAppPrefix
- * @param {string|{}|*} refOrStr
- */
-function getAppPrefix(refOrStr) {
-  if (isString(refOrStr)) {
-    return getFirstWord(refOrStr)
-  }
-
-  if (isObject(refOrStr)) {
-    return refOrStr.prefix
-  }
-}
-
-/**
- * getFirstWord
- * @param {string} str
- * @param {string} [delimiter]
- */
-const getFirstWord = (str, delimiter = '/') =>
-  str
-    .split(delimiter || '.')
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .shift();
 
 /**
  * registerHook

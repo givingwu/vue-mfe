@@ -69,14 +69,6 @@ var getVarName = function (prefix) {
 };
 
 /**
- * getAppName
- * @param {string} prefix
- */
-var getAppName = function (prefix) {
-  return getConfig(prefix).name
-};
-
-/**
  * getConfig
  * @param {string} prefix
  * @returns {SubAppConfig}
@@ -107,6 +99,35 @@ var registerApp = function (prefix, config) {
   }
 
   return false
+};
+
+/**
+ * getAppPrefix
+ * @param {string|{}|*} refOrStr
+ */
+function getAppPrefix(refOrStr) {
+  if (isString(refOrStr)) {
+    return getFirstWord(refOrStr)
+  }
+
+  if (isObject(refOrStr)) {
+    return refOrStr.prefix
+  }
+}
+
+/**
+ * getFirstWord
+ * @param {string} str
+ * @param {string} [delimiter]
+ */
+var getFirstWord = function (str, delimiter) {
+    if ( delimiter === void 0 ) delimiter = '/';
+
+    return str
+    .split(delimiter)
+    .map(function (s) { return s.trim(); })
+    .filter(Boolean)
+    .shift();
 };
 
 // @ts-ignore
@@ -346,6 +367,7 @@ var serialExecute = function (promises) {
  *  2. 远程组件同样支持分片加载
  *  3. 可以引入所有被暴露的模块
  * @param {string} url appName+delimiter+[moduleName?]+componentName
+ * @param {string} [delimiter] 分隔符
  * @example 引入特定 appName 应用下特定 moduleName 下特定 componentName
  *  ```js
  *    const LazyComponent = VueMfe.lazy('appName.moduleName.componentName')
@@ -355,15 +377,17 @@ var serialExecute = function (promises) {
  *    const FlowLayout = VueMfe.lazy('wf.components.FlowLayout')
  *  ```
  */
-function Lazy(url) {
+function Lazy(url, delimiter) {
+  if ( delimiter === void 0 ) delimiter = '.';
+
   if (!getConfig()) {
     throw new Error(
       'Before you call `VueMfe.Lazy(url: string)` must set its config by `VueMfe.Lazy.setConfig({ resource: Resource[] })`'
     )
   }
 
-  var appName = getAppName(url);
-  var keyPath = url.slice(appName.length + 1);
+  var appName = getFirstWord(url, delimiter);
+  var keyPath = url.slice(appName.length + delimiter.length);
 
   return (
     appName &&
@@ -757,6 +781,7 @@ var install$1 = function (args) {
     // After apply mini app routes, i must to force next(to)
     // instead of next(). next() do nothing... bug???
     next && to && next(to);
+    return true
   };
 
   /**
@@ -838,7 +863,7 @@ var appMap = {};
 
 var registerChildren = function (apps, path) {
   if (apps) {
-    [].concat(apps).forEach(function (app) {
+    ([].concat(apps)).forEach(function (app) {
       if (typeof app === 'object') {
         var appKeys = Object.keys(app);
         appKeys.forEach(function (appName) {
@@ -1059,35 +1084,6 @@ function mergeRoutes(oldRoutes, newRoutes, parentPath) {
 
   return oldRoutes
 }
-
-/**
- * getAppPrefix
- * @param {string|{}|*} refOrStr
- */
-function getAppPrefix(refOrStr) {
-  if (isString(refOrStr)) {
-    return getFirstWord(refOrStr)
-  }
-
-  if (isObject(refOrStr)) {
-    return refOrStr.prefix
-  }
-}
-
-/**
- * getFirstWord
- * @param {string} str
- * @param {string} [delimiter]
- */
-var getFirstWord = function (str, delimiter) {
-    if ( delimiter === void 0 ) delimiter = '/';
-
-    return str
-    .split(delimiter || '.')
-    .map(function (s) { return s.trim(); })
-    .filter(Boolean)
-    .shift();
-};
 
 /**
  * registerHook
