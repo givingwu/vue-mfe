@@ -1,5 +1,6 @@
-import { registerApp, getConfig, getAppName } from './app/config'
-import { getPropVal } from '../utils/index'
+import { resolveModule } from './install'
+import { registerApp, getConfig } from './app/config'
+import { getFirstWord } from '../utils/app'
 import { isFunction } from '../utils/type'
 import { load } from '../helpers/loader'
 
@@ -11,6 +12,7 @@ import { load } from '../helpers/loader'
  *  2. 远程组件同样支持分片加载
  *  3. 可以引入所有被暴露的模块
  * @param {string} url appName+delimiter+[moduleName?]+componentName
+ * @param {string} [delimiter] 分隔符
  * @example 引入特定 appName 应用下特定 moduleName 下特定 componentName
  *  ```js
  *    const LazyComponent = VueMfe.lazy('appName.moduleName.componentName')
@@ -20,20 +22,20 @@ import { load } from '../helpers/loader'
  *    const FlowLayout = VueMfe.lazy('wf.components.FlowLayout')
  *  ```
  */
-export const lazy = (url) => {
+export function Lazy(url, delimiter = '.') {
   if (!getConfig()) {
     throw new Error(
-      'Before you calls `VueMfe.Lazy(url: string)` must setting its config use like `VueMfe.lazy.setConfig({ resource: Resources })`'
+      'Before you call `VueMfe.Lazy(url: string)` must set its config by `VueMfe.Lazy.setConfig({ resource: Resource[] })`'
     )
   }
 
-  const appName = getAppName(url)
-  const keyPath = url.slice(appName.length + 1)
+  const appName = getFirstWord(url, delimiter)
+  const keyPath = url.slice(appName.length + delimiter.length)
 
   return (
     appName &&
     load(appName).then((module) => {
-      const component = getPropVal(module, keyPath)
+      const component = getPropVal(resolveModule(module), keyPath)
 
       if (isFunction(component)) {
         return component()
@@ -44,6 +46,17 @@ export const lazy = (url) => {
   )
 }
 
-lazy.setConfig = function(config) {
-  registerApp(config)
+Lazy.setConfig = function(config) {
+  return registerApp(config)
+}
+
+/**
+ * getPropVal
+ * @param {Object} obj
+ * @param {string} key
+ */
+const getPropVal = (obj, key) => {
+  return key.split('.').reduce((o, k) => {
+    return o[k]
+  }, obj)
 }

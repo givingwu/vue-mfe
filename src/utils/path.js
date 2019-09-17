@@ -1,3 +1,25 @@
+import { parse, tokensToRegExp } from 'path-to-regexp'
+
+export function findMatchedName(map, key) {
+  // all names array
+  const keys = Object.keys(map)
+
+  if (keys) {
+    /** @type {RegExp[]} */
+    const regexps = keys.map((key) => tokensToRegExp(parse(key)))
+    let i = 0
+    let l = regexps.length
+
+    while (i++ < l) {
+      const regexp = regexps[i]
+
+      if (regexp.test(key)) {
+        return keys[i]
+      }
+    }
+  }
+}
+
 /**
  * @description auto complete path with parent path
  * @param {string} path

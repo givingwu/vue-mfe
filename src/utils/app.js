@@ -1,9 +1,8 @@
 import { isObject, isString } from './type'
-import { getFirstWord } from './index'
 
 /**
  * getAppPrefix
- * @param {string|Object} refOrStr
+ * @param {string|{}|*} refOrStr
  */
 export function getAppPrefix(refOrStr) {
   if (isString(refOrStr)) {
@@ -14,3 +13,15 @@ export function getAppPrefix(refOrStr) {
     return refOrStr.prefix
   }
 }
+
+/**
+ * getFirstWord
+ * @param {string} str
+ * @param {string} [delimiter]
+ */
+export const getFirstWord = (str, delimiter = '/') =>
+  str
+    .split(delimiter)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .shift()

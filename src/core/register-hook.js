@@ -2,7 +2,7 @@ import { install } from './install'
 import { getRootApp } from './app/config'
 import { isInstalled } from './app/status'
 import { getAppPrefix } from '../utils/app'
-import { getApp, installApps } from './app/children'
+import { getChildrenApp, installApps } from './app/children'
 import { LOAD_DUPLICATE_WITHOUT_PATH } from '../constants/ERROR_CODE'
 import { LOAD_ERROR } from '../constants/EVENT_TYPE'
 
@@ -19,7 +19,7 @@ export function registerHook(router) {
       const args = { name: prefix, to, from, next }
 
       if (isInstalled(prefix)) {
-        const children = getApp(to.fullPath || to.path)
+        const children = getChildrenApp(to.fullPath || to.path)
 
         if (children && children.length) {
           return installChildren(children, args)

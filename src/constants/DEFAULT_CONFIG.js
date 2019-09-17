@@ -9,5 +9,7 @@ export const DEFAULT_CONFIG = {
 
   // 获取资源的配置函数，支持同步和异步
   /** @type {Object|Function} */
-  resources: () => {},
+  resources: () => {
+    throw new Error()
+  }
 }

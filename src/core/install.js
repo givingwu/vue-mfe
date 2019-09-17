@@ -1,6 +1,5 @@
 import { load } from '../helpers/loader'
 import { isRoute } from '../utils/route'
-import { resolveModule } from '../utils/index'
 import { isArray, isObject, isFunction } from '../utils/type'
 import { getRootApp, getRouter, getConfig } from './app/config'
 import { isInstalled, setAppStatus } from './app/status'
@@ -35,6 +34,7 @@ export const install = (args) => {
     // After apply mini app routes, i must to force next(to)
     // instead of next(). next() do nothing... bug???
     next && to && next(to)
+    return true
   }
 
   /**
@@ -58,7 +58,7 @@ export const install = (args) => {
    */
   return (
     load(name)
-      .then((module) => installModule(module))
+      .then((module) => installModule(module, name))
       // .then((routes) => installAppModule(routes, name))
       .then(handleSuccess)
       .catch(handleError)
@@ -67,9 +67,10 @@ export const install = (args) => {
 
 /**
  * installModule
- * @param {*} module
+ * @param {Module&Route&Route[]} module
+ * @param {string} [name]
  */
-function installModule(module) {
+function installModule(module, name) {
   if (isObject(module) && isRoute(module)) {
     return getRouter().addRoutes([module])
   }
@@ -78,11 +79,34 @@ function installModule(module) {
     return getRouter().addRoutes(module)
   }
 
-  const { init, routes, parentPath } = resolveModule(module)
+  const entry = resolveModule(module)
   const { parentPath: globalParentPath } = getConfig()
 
-  return Promise.resolve(isFunction(init) && init(getRootApp())).then(() => {
-    // @ts-ignore
-    getRouter().addRoutes(routes, parentPath || globalParentPath)
-  })
+  // 向前兼容，如果导出的是 `export default function initSubApp(rootApp): Route[] {}`
+  if (isObject(entry)) {
+    // 最新API，导出的是 `export default createSubApp({ init: Function, routes: Route[], parentPath: string })`
+    const { init, routes, parentPath } = entry
+
+    return Promise.resolve(isFunction(init) && init(getRootApp())).then(() => {
+      // @ts-ignore
+      getRouter().addRoutes(routes, parentPath || globalParentPath)
+    })
+  } else if (isFunction(entry)) {
+    return Promise.resolve(entry(getRootApp())).then((routes) => {
+      // @ts-ignore
+      getRouter().addRoutes(routes, globalParentPath)
+    })
+  } else {
+    throw new Error(`
+      Cannot not found 'export default VueMfe.createSubApp({ prefix: ${name} })' in '${name}/src/portal.entry.js'
+    `)
+  }
 }
+
+/**
+ * @description resolve module whether ES or CommandJS module
+ * @typedef {{ default: *, [key: string]: * }} Module
+ * @param {Module} module
+ * @returns {Module&Function}
+ */
+export const resolveModule = (module) => (module && module.default) || module

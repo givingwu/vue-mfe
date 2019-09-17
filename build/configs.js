@@ -6,7 +6,9 @@ const buble = require('rollup-plugin-buble')
 const replace = require('rollup-plugin-replace')
 
 const package = require('../package.json')
-const external = Object.keys(package.dependencies)
+const external = Object.keys(package.dependencies).filter(
+  (key) => key !== 'path-to-regexp'
+)
 const version = process.env.VERSION || package.version
 const libraryName = process.env.LIBRARY_NAME || package.name
 

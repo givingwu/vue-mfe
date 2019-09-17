@@ -59,26 +59,6 @@ export const camelize = (str, pascalCase = false) =>
     .join('')
 
 /**
- * @description resolve module whether ES Module or CommandJS module
- * @template Module
- * @property {Object} [default]
- * @param {Module & Object} module
- * @returns {*}
- */
-export const resolveModule = (module) => (module && module.default) || module
-
-/**
- * getPropVal
- * @param {Object} obj
- * @param {string} key
- */
-export const getPropVal = (obj, key) => {
-  return key.split('.').reduce((o, k) => {
-    return o[k]
-  }, obj)
-}
-
-/**
  * @description Define immutable property for the given object
  * @param {Object} obj
  * @param {string} key
@@ -92,15 +72,3 @@ export const defineImmutableProp = (obj, key, val) => {
     writable: false
   })
 }
-
-/**
- * getFirstWord
- * @param {string} str
- * @param {string} [delimiter]
- */
-export const getFirstWord = (str, delimiter = '/') =>
-  str
-    .split(delimiter || '.')
-    .filter(Boolean)
-    .map((s) => s.trim())
-    .shift()

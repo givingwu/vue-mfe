@@ -1,5 +1,5 @@
-import { completePath } from '../../utils/path'
 import { warn } from '../../utils/index'
+import { completePath } from '../../utils/path'
 
 export const pathList = []
 export const pathMap = {}
