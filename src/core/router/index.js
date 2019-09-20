@@ -1,5 +1,5 @@
 import VueRouter from 'vue-router'
-import { refresh } from './refresh'
+import { refresh } from './path'
 import { getRouter } from '../app/config'
 import { findRoute } from '../../utils/route'
 import { isString, isArray } from '../../utils/type'
