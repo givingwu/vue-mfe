@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.6
+  * vue-mfe v1.0.5
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -206,6 +206,14 @@ var getVarName = function (prefix) {
 };
 
 /**
+ * getAppName
+ * @param {string} prefix
+ */
+var getAppName = function (prefix) {
+  return getConfig(prefix).name
+};
+
+/**
  * getConfig
  * @param {string} prefix
  * @returns {SubAppConfig}
@@ -384,8 +392,8 @@ function setAppStatus(prefix, status) {
   return (appStatus[prefix] = status)
 }
 
-var LOAD_ERROR_HAPPENED = -1;
-var LOAD_DUPLICATE_WITHOUT_PATH = -2;
+var LOAD_ERROR_HAPPENED = 'LOAD_ERROR_HAPPENED';
+var LOAD_DUPLICATE_WITHOUT_PATH = 'LOAD_DUPLICATE_WITHOUT_PATH';
 
 var LOAD_START = 'load-start';
 var LOAD_SUCCESS = 'load-success';
@@ -837,28 +845,6 @@ function ensureSlash(path) {
   return path.charAt(0) === '/'
 }
 
-var pathList = [];
-var pathMap = {};
-
-var pathExists = function (path) {
-  return pathList.includes(path)
-};
-
-var nameExists = function (name) {
-  return pathMap[name]
-};
-
-var genParentPath = function (path, parentPath, name) {
-  if (pathExists(parentPath)) {
-    return (path = completePath(path, parentPath))
-  } else {
-    warn(
-      ("Cannot found the parent path " + parentPath + " " + (name ? 'of ' + name : '') + " in router")
-    );
-    return ''
-  }
-};
-
 var appMap = {};
 
 var registerChildren = function (apps, path) {
@@ -908,6 +894,28 @@ var installApps = function (apps) {
   return Promise.all(promises).then(function (res) {
     return res.every(Boolean)
   })
+};
+
+var pathList = [];
+var pathMap = {};
+
+var pathExists = function (path) {
+  return pathList.includes(path)
+};
+
+var nameExists = function (name) {
+  return pathMap[name]
+};
+
+var genParentPath = function (path, parentPath, name) {
+  if (pathExists(parentPath)) {
+    return (path = completePath(path, parentPath))
+  } else {
+    warn(
+      ("Cannot found the parent path " + parentPath + " " + (name ? 'of ' + name : '') + " in router")
+    );
+    return ''
+  }
 };
 
 /**
@@ -1085,6 +1093,18 @@ function mergeRoutes(oldRoutes, newRoutes, parentPath) {
   return oldRoutes
 }
 
+function isUnmatchableRoute(route) {
+  if (route.name && nameExists(route.name)) {
+    return false
+  }
+
+  if (pathExists(route.path)) {
+    return false
+  }
+
+  return route.matched.length === 0
+}
+
 /**
  * registerHook
  * @param {import('vue-router').default} router
@@ -1093,7 +1113,7 @@ function registerHook(router) {
   // 处理 none-matched route 并尝试去安装和调用
   router.beforeEach(function handleUnmatchableRoute(to, from, next) {
     // @ts-ignore
-    if (to.matched.length === 0 || router.match(to.path).matched.length === 0) {
+    if (isUnmatchableRoute(to)) {
       var prefix = getAppPrefix(to.fullPath || to.path);
       var args = { name: prefix, to: to, from: from, next: next };
 
@@ -1117,22 +1137,37 @@ function registerHook(router) {
 function installChildren(children, ref) {
   var next = ref.next;
   var to = ref.to;
+  var name = ref.name;
 
   return installApps(children)
     .then(function (success) { return success && next && to && next(to); })
     .catch(function (error) {
       // eslint-disable-next-line no-console
-      console.log('error: ', error);
-      // this.emit('error', error, args)
+      createError(error, '', LOAD_ERROR_HAPPENED, name);
     })
 }
 
 function loadAppDuplicate(prefix, to) {
-  var error = new Error(
-    (prefix + " has been installed but it has no any path like " + (to.path))
+  createError(
+    null,
+    (prefix + " has been installed but it has no any path like " + (to.path)),
+    LOAD_DUPLICATE_WITHOUT_PATH,
+    prefix
   );
-  // @ts-ignore
-  error.code = LOAD_DUPLICATE_WITHOUT_PATH;
+}
+
+function createError(error, message, code, prefix) {
+  if (!error) {
+    error = new Error("[" + (getAppName(prefix) || prefix) + "]:" + message);
+  }
+
+  if (code && !error.code) {
+    error.code = code;
+  }
+
+  if (prefix && !error.name) {
+    error.name = prefix;
+  }
 
   getRootApp().$emit(LOAD_ERROR, error);
 }
