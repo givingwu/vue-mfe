@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.5
+  * vue-mfe v1.0.7
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -229,8 +229,6 @@ function remove(ele) {
 }
 
 /**
- * @typedef {import("../..").AppConfig} AppConfig
- * @typedef {import("../..").SubAppConfig} SubAppConfig
  * @typedef {import('../..').Resources} Resources
  */
 /** @type {Map<string, Resources>} */
@@ -1264,7 +1262,7 @@ function createSubApp(config) {
 }
 
 const VueMfe = {
-  version: '1.0.5',
+  version: '1.0.7',
   Lazy,
   createApp,
   createSubApp,
