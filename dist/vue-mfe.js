@@ -46,32 +46,6 @@ var isString = function (str) { return typeof str === 'string'; };
 var configMap = new Map();
 
 /**
- * getResource
- * @param {string} prefix
- * @returns {import('../..').Resources}
- */
-var getResource = function (prefix) {
-  // 1. 先取 SubApp.config
-  var config = getConfig(prefix);
-
-  if (!config || !config.resources) {
-    // 2. 再取 HostApp.config
-    config = getConfig();
-  }
-
-  if (config && config.resources) {
-    if (isFunction(config.resources)) {
-      // @ts-ignore
-      return config.resources()
-    }
-
-    if (isObject(config.resources)) {
-      return config.resources
-    }
-  }
-};
-
-/**
  * @returns {import('../..').Router}
  */
 // @ts-ignore
@@ -265,6 +239,51 @@ function remove(ele) {
   }
 }
 
+/**
+ * @typedef {import('../..').Resources} Resources
+ */
+/** @type {Map<string, Resources>} */
+var resources = new Map();
+
+/**
+ * getResource
+ * @param {string} prefix
+ * @returns {import('../..').Resources}
+ */
+var getResource = function (prefix) {
+  // 0. 先取缓存中的值
+  var cached = resources.get(prefix);
+
+  if (cached && isObject(cached)) {
+    return cached
+  }
+
+  // 1. 再取 SubApp.config
+  var config = getConfig(prefix);
+
+  if (!config || !config.resources) {
+    // 2. 最后取 HostApp.config
+    config = getConfig();
+  }
+
+  if (config && config.resources) {
+    if (isFunction(config.resources)) {
+      // @ts-ignore
+      var resource = config.resources();
+      resources.set(prefix, resource);
+
+      return resource
+    }
+
+    if (isObject(config.resources)) {
+      var resource$1 = config.resources;
+      resources.set(prefix, resource$1);
+
+      return resource$1
+    }
+  }
+};
+
 /* eslint-disable */
 
 var cached = {};
@@ -300,10 +319,8 @@ function load(prefix) {
  */
 var getEntries = function (key) {
   return Promise.resolve(getResource(key)).then(function (obj) {
-    if ( obj === void 0 ) obj = {};
-
     return (
-      obj[key] ||
+      (obj && obj[key]) ||
       warn(("The App key '" + key + "' cannot be found in " + (JSON.stringify(obj))))
     )
   })
@@ -1210,17 +1227,18 @@ var DEFAULT_CONFIG = {
  * @property {{}} [matcher]
  * @typedef {VueRouter & VueMfeRouter} Router
  *
- * @typedef {Object<string,{}>|Object<string, string[]>|Object<string, {}[]>} Resource
- *
- * @callback ResourcesFn
- * @returns {Resource|Resource[]|Promise<Resource>}
- * @typedef {ResourcesFn|Resource|Resource[]} Resources
- *
  * @typedef AppConfig
  * @property {Router} router 主应用 VueRouter 根实例
  * @property {boolean} [sensitive] 是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
  * @property {string} [parentPath] default parent path
  * @property {Resources} resources 获取资源的配置函数，支持同步/异步的函数/对象
+
+ * @typedef {Object<string, {}>|Object<string, string[]>|Object<string, {}[]>} RawResource
+ * @typedef {RawResource & AppConfig & SubAppConfig} Resource
+ *
+ * @callback ResourcesFn
+ * @returns {Resource|Resource[]|Promise<Resource>}
+ * @typedef {ResourcesFn|Resource|Resource[]} Resources
  *
  * @param {AppConfig} config
  *
