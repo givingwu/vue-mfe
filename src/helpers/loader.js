@@ -3,7 +3,8 @@ import { isDev } from '../utils/env'
 import { warn } from '../utils/index'
 import { lazyLoadScript, lazyloadStyle } from '../utils/dom'
 import { isArray, isFunction, isObject } from '../utils/type'
-import { getVarName, getResource } from '../core/app/config'
+import { getVarName } from '../core/app/config'
+import { getResource } from '../core/app/resources'
 
 let cached = {}
 
@@ -37,9 +38,9 @@ export function load(prefix) {
  * @param {string} key
  */
 const getEntries = (key) => {
-  return Promise.resolve(getResource(key)).then((obj = {}) => {
+  return Promise.resolve(getResource(key)).then((obj) => {
     return (
-      obj[key] ||
+      (obj && obj[key]) ||
       warn(`The App key '${key}' cannot be found in ${JSON.stringify(obj)}`)
     )
   })

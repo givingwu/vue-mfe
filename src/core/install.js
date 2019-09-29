@@ -1,8 +1,9 @@
+import { isInstalled, setAppStatus } from './app/status'
+import { getRootApp, getRouter, getConfig } from './app/config'
 import { load } from '../helpers/loader'
+import { createError } from '../helpers/create-error'
 import { isRoute } from '../utils/route'
 import { isArray, isObject, isFunction } from '../utils/type'
-import { getRootApp, getRouter, getConfig } from './app/config'
-import { isInstalled, setAppStatus } from './app/status'
 import { LOAD_ERROR_HAPPENED } from '../constants/ERROR_CODE'
 import { START, SUCCESS, FAILED } from '../constants/LOAD_STATUS'
 import { LOAD_START, LOAD_SUCCESS, LOAD_ERROR } from '../constants/EVENT_TYPE'
@@ -42,12 +43,9 @@ export const install = (args) => {
    * @param {Error|string} error
    */
   const handleError = (error) => {
-    if (!(error instanceof Error)) error = new Error(error)
-    // @ts-ignore
-    if (!error.code) error.code = LOAD_ERROR_HAPPENED
-
     setAppStatus(name, FAILED)
-    app.$emit(LOAD_ERROR, error, args) // error-first like node?! 😊
+    // error-first like node?! 😊
+    createError(error, '', LOAD_ERROR_HAPPENED, name, args)
 
     next && next(false) // stop navigating to next route
   }
@@ -82,7 +80,7 @@ function installModule(module, name) {
   const entry = resolveModule(module)
   const { parentPath: globalParentPath } = getConfig()
 
-  // 向前兼容，如果导出的是 `export default function initSubApp(rootApp): Route[] {}`
+  // 不再向前兼容，如果导出的是 `export default function initSubApp(rootApp): Route[] {}`
   if (isObject(entry)) {
     // 最新API，导出的是 `export default createSubApp({ init: Function, routes: Route[], parentPath: string })`
     const { init, routes, parentPath } = entry
@@ -91,14 +89,14 @@ function installModule(module, name) {
       // @ts-ignore
       getRouter().addRoutes(routes, parentPath || globalParentPath)
     })
-  } else if (isFunction(entry)) {
+  } /* else if (isFunction(entry)) {
     return Promise.resolve(entry(getRootApp())).then((routes) => {
       // @ts-ignore
       getRouter().addRoutes(routes, globalParentPath)
     })
-  } else {
+  } */ else {
     throw new Error(`
-      Cannot not found 'export default VueMfe.createSubApp({ prefix: ${name} })' in '${name}/src/portal.entry.js'
+      Cannot not found 'export default VueMfe.createSubApp({ prefix: ${name}, routes: [] })' in '${name}/src/portal.entry.js'
     `)
   }
 }

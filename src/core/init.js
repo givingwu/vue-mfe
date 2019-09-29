@@ -1,4 +1,4 @@
-import { refresh } from './router/refresh'
+import { refresh } from './router/path'
 import { addRoutes } from './router/index'
 import { registerHook } from './register-hook'
 

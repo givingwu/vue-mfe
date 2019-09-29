@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.6
+  * vue-mfe v1.0.7
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -11,10 +11,24 @@ function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'defau
 
 var VueRouter = _interopDefault(require('vue-router'));
 
-// @ts-ignore
-var isDev = process.env.NODE_ENV === 'development';
-// export const isMaster = process.env.VUE_APP_MASTER !== undefined
-// export const isPortal = !isMaster || process.env.VUE_APP_PORTAL !== undefined
+var SUCCESS = 1;
+var START = 0;
+var FAILED = -1;
+
+// 记录 app 加载状态
+var appStatus = {};
+
+/**
+ * isInstalled
+ * @param {string} prefix
+ */
+function isInstalled(prefix) {
+  return appStatus[prefix] === SUCCESS
+}
+
+function setAppStatus(prefix, status) {
+  return (appStatus[prefix] = status)
+}
 
 var isArray = function (arr) { return Array.isArray(arr); };
 
@@ -23,6 +37,75 @@ var isFunction = function (fn) { return fn && typeof fn === 'function'; };
 var isObject = function (obj) { return obj && typeof obj === 'object'; };
 
 var isString = function (str) { return typeof str === 'string'; };
+
+/**
+ * @typedef {import("../..").AppConfig} AppConfig
+ * @typedef {import("../..").SubAppConfig} SubAppConfig
+ */
+/** @type {Map<string, SubAppConfig>} */
+var configMap = new Map();
+
+/**
+ * @returns {import('../..').Router}
+ */
+// @ts-ignore
+var getRouter = function () { return getConfig().router; };
+
+var getRootApp = function () { return getRouter().app; };
+
+/**
+ * getVarName
+ * @param {string} prefix
+ */
+var getVarName = function (prefix) {
+  return getConfig(prefix).globalVar || '__domain__app__' + prefix
+};
+
+/**
+ * getAppName
+ * @param {string} prefix
+ */
+var getAppName = function (prefix) {
+  return getConfig(prefix).name
+};
+
+/**
+ * getConfig
+ * @param {string} prefix
+ * @returns {SubAppConfig}
+ */
+var getConfig = function (prefix) {
+  if ( prefix === void 0 ) prefix = '*';
+
+  // @ts-ignore
+  return configMap.get(prefix) || {}
+};
+
+/**
+ * registerApp 注册应用并记录配置到 configMap
+ * @param {string|AppConfig|SubAppConfig} prefix
+ * @param {SubAppConfig} [config]
+ */
+var registerApp = function (prefix, config) {
+  // 默认的全局配置为 { *: config }
+  if (isObject(prefix)) {
+    // @ts-ignore
+    config = prefix;
+    prefix = config.prefix || '*';
+  }
+
+  if (isString(prefix) && isObject(config)) {
+    // @ts-ignore
+    return configMap.set(prefix, config)
+  }
+
+  return false
+};
+
+// @ts-ignore
+var isDev = process.env.NODE_ENV === 'development';
+// export const isMaster = process.env.VUE_APP_MASTER !== undefined
+// export const isPortal = !isMaster || process.env.VUE_APP_PORTAL !== undefined
 
 var hasConsole = // eslint-disable-next-line no-console
   typeof console !== 'undefined' && typeof console.warn === 'function';
@@ -157,11 +240,10 @@ function remove(ele) {
 }
 
 /**
- * @typedef {import("../..").AppConfig} AppConfig
- * @typedef {import("../..").SubAppConfig} SubAppConfig
+ * @typedef {import('../..').Resources} Resources
  */
-/** @type {Map<string, SubAppConfig>} */
-var configMap = new Map();
+/** @type {Map<string, Resources>} */
+var resources = new Map();
 
 /**
  * getResource
@@ -169,73 +251,37 @@ var configMap = new Map();
  * @returns {import('../..').Resources}
  */
 var getResource = function (prefix) {
-  // 1. 先取 SubApp.config
+  // 0. 先取缓存中的值
+  var cached = resources.get(prefix);
+
+  if (cached && isObject(cached)) {
+    return cached
+  }
+
+  // 1. 再取 SubApp.config
   var config = getConfig(prefix);
 
   if (!config || !config.resources) {
-    // 2. 再取 HostApp.config
+    // 2. 最后取 HostApp.config
     config = getConfig();
   }
 
   if (config && config.resources) {
     if (isFunction(config.resources)) {
       // @ts-ignore
-      return config.resources()
+      var resource = config.resources();
+      resources.set(prefix, resource);
+
+      return resource
     }
 
     if (isObject(config.resources)) {
-      return config.resources
+      var resource$1 = config.resources;
+      resources.set(prefix, resource$1);
+
+      return resource$1
     }
   }
-};
-
-/**
- * @returns {import('../..').Router}
- */
-// @ts-ignore
-var getRouter = function () { return getConfig().router; };
-
-var getRootApp = function () { return getRouter().app; };
-
-/**
- * getVarName
- * @param {string} prefix
- */
-var getVarName = function (prefix) {
-  return getConfig(prefix).globalVar || '__domain__app__' + prefix
-};
-
-/**
- * getConfig
- * @param {string} prefix
- * @returns {SubAppConfig}
- */
-var getConfig = function (prefix) {
-  if ( prefix === void 0 ) prefix = '*';
-
-  // @ts-ignore
-  return configMap.get(prefix) || {}
-};
-
-/**
- * registerApp 注册应用并记录配置到 configMap
- * @param {string|AppConfig|SubAppConfig} prefix
- * @param {SubAppConfig} [config]
- */
-var registerApp = function (prefix, config) {
-  // 默认的全局配置为 { *: config }
-  if (isObject(prefix)) {
-    // @ts-ignore
-    config = prefix;
-    prefix = config.prefix || '*';
-  }
-
-  if (isString(prefix) && isObject(config)) {
-    // @ts-ignore
-    return configMap.set(prefix, config)
-  }
-
-  return false
 };
 
 /* eslint-disable */
@@ -273,10 +319,8 @@ function load(prefix) {
  */
 var getEntries = function (key) {
   return Promise.resolve(getResource(key)).then(function (obj) {
-    if ( obj === void 0 ) obj = {};
-
     return (
-      obj[key] ||
+      (obj && obj[key]) ||
       warn(("The App key '" + key + "' cannot be found in " + (JSON.stringify(obj))))
     )
   })
@@ -330,6 +374,26 @@ var serialExecute = function (promises) {
   }, Promise.resolve())
 };
 
+var LOAD_START = 'load-start';
+var LOAD_SUCCESS = 'load-success';
+var LOAD_ERROR = 'load-error';
+
+function createError(error, message, code, prefix, args) {
+  if (!error || !(error instanceof Error)) {
+    error = new Error("【" + (getAppName(prefix) || prefix) + "】：" + message);
+  }
+
+  if (code && !error.code) {
+    error.code = code;
+  }
+
+  if (prefix && !error.name) {
+    error.name = prefix;
+  }
+
+  getRootApp().$emit(LOAD_ERROR, error, args);
+}
+
 /**
  * findRoute DFS
  * @typedef {import('vue-router').RouteConfig} Route
@@ -365,31 +429,8 @@ function isRoute(obj) {
   return obj && isObject(obj) && obj.path && obj.component
 }
 
-var SUCCESS = 1;
-var START = 0;
-var FAILED = -1;
-
-// 记录 app 加载状态
-var appStatus = {};
-
-/**
- * isInstalled
- * @param {string} prefix
- */
-function isInstalled(prefix) {
-  return appStatus[prefix] === SUCCESS
-}
-
-function setAppStatus(prefix, status) {
-  return (appStatus[prefix] = status)
-}
-
-var LOAD_ERROR_HAPPENED = -1;
-var LOAD_DUPLICATE_WITHOUT_PATH = -2;
-
-var LOAD_START = 'load-start';
-var LOAD_SUCCESS = 'load-success';
-var LOAD_ERROR = 'load-error';
+var LOAD_ERROR_HAPPENED = 'LOAD_ERROR_HAPPENED';
+var LOAD_DUPLICATE_WITHOUT_PATH = 'LOAD_DUPLICATE_WITHOUT_PATH';
 
 /**
  * @typedef {import('../index').Route} Route
@@ -428,12 +469,9 @@ var install$1 = function (args) {
    * @param {Error|string} error
    */
   var handleError = function (error) {
-    if (!(error instanceof Error)) { error = new Error(error); }
-    // @ts-ignore
-    if (!error.code) { error.code = LOAD_ERROR_HAPPENED; }
-
     setAppStatus(name, FAILED);
-    app.$emit(LOAD_ERROR, error, args); // error-first like node?! 😊
+    // error-first like node?! 😊
+    createError(error, '', LOAD_ERROR_HAPPENED, name, args);
 
     next && next(false); // stop navigating to next route
   };
@@ -469,7 +507,7 @@ function installModule(module, name) {
   var ref = getConfig();
   var globalParentPath = ref.parentPath;
 
-  // 向前兼容，如果导出的是 `export default function initSubApp(rootApp): Route[] {}`
+  // 不再向前兼容，如果导出的是 `export default function initSubApp(rootApp): Route[] {}`
   if (isObject(entry)) {
     // 最新API，导出的是 `export default createSubApp({ init: Function, routes: Route[], parentPath: string })`
     var init = entry.init;
@@ -480,13 +518,13 @@ function installModule(module, name) {
       // @ts-ignore
       getRouter().addRoutes(routes, parentPath || globalParentPath);
     })
-  } else if (isFunction(entry)) {
-    return Promise.resolve(entry(getRootApp())).then(function (routes) {
+  } /* else if (isFunction(entry)) {
+    return Promise.resolve(entry(getRootApp())).then((routes) => {
       // @ts-ignore
-      getRouter().addRoutes(routes, globalParentPath);
+      getRouter().addRoutes(routes, globalParentPath)
     })
-  } else {
-    throw new Error(("\n      Cannot not found 'export default VueMfe.createSubApp({ prefix: " + name + " })' in '" + name + "/src/portal.entry.js'\n    "))
+  } */ else {
+    throw new Error(("\n      Cannot not found 'export default VueMfe.createSubApp({ prefix: " + name + ", routes: [] })' in '" + name + "/src/portal.entry.js'\n    "))
   }
 }
 
@@ -837,28 +875,6 @@ function ensureSlash(path) {
   return path.charAt(0) === '/'
 }
 
-var pathList = [];
-var pathMap = {};
-
-var pathExists = function (path) {
-  return pathList.includes(path)
-};
-
-var nameExists = function (name) {
-  return pathMap[name]
-};
-
-var genParentPath = function (path, parentPath, name) {
-  if (pathExists(parentPath)) {
-    return (path = completePath(path, parentPath))
-  } else {
-    warn(
-      ("Cannot found the parent path " + parentPath + " " + (name ? 'of ' + name : '') + " in router")
-    );
-    return ''
-  }
-};
-
 var appMap = {};
 
 var registerChildren = function (apps, path) {
@@ -908,6 +924,28 @@ var installApps = function (apps) {
   return Promise.all(promises).then(function (res) {
     return res.every(Boolean)
   })
+};
+
+var pathList = [];
+var pathMap = {};
+
+var pathExists = function (path) {
+  return pathList.includes(path)
+};
+
+var nameExists = function (name) {
+  return pathMap[name]
+};
+
+var genParentPath = function (path, parentPath, name) {
+  if (pathExists(parentPath)) {
+    return (path = completePath(path, parentPath))
+  } else {
+    warn(
+      ("Cannot found the parent path " + parentPath + " " + (name ? 'of ' + name : '') + " in router")
+    );
+    return ''
+  }
 };
 
 /**
@@ -1085,6 +1123,18 @@ function mergeRoutes(oldRoutes, newRoutes, parentPath) {
   return oldRoutes
 }
 
+function isUnmatchableRoute(route) {
+  if (route.name && nameExists(route.name)) {
+    return false
+  }
+
+  if (pathExists(route.path)) {
+    return false
+  }
+
+  return route.matched.length === 0
+}
+
 /**
  * registerHook
  * @param {import('vue-router').default} router
@@ -1093,7 +1143,7 @@ function registerHook(router) {
   // 处理 none-matched route 并尝试去安装和调用
   router.beforeEach(function handleUnmatchableRoute(to, from, next) {
     // @ts-ignore
-    if (to.matched.length === 0 || router.match(to.path).matched.length === 0) {
+    if (isUnmatchableRoute(to)) {
       var prefix = getAppPrefix(to.fullPath || to.path);
       var args = { name: prefix, to: to, from: from, next: next };
 
@@ -1103,7 +1153,13 @@ function registerHook(router) {
         if (children && children.length) {
           return installChildren(children, args)
         } else {
-          loadAppDuplicate(prefix, to);
+          createError(
+            null,
+            (prefix + " has been installed but it has no any path like " + (to.path)),
+            LOAD_DUPLICATE_WITHOUT_PATH,
+            prefix,
+            args
+          );
         }
       } else {
         return install$1(args)
@@ -1114,27 +1170,17 @@ function registerHook(router) {
   });
 }
 
-function installChildren(children, ref) {
-  var next = ref.next;
-  var to = ref.to;
+function installChildren(children, args) {
+  var next = args.next;
+  var to = args.to;
+  var name = args.name;
 
   return installApps(children)
     .then(function (success) { return success && next && to && next(to); })
     .catch(function (error) {
       // eslint-disable-next-line no-console
-      console.log('error: ', error);
-      // this.emit('error', error, args)
+      createError(error, '', LOAD_ERROR_HAPPENED, name, args);
     })
-}
-
-function loadAppDuplicate(prefix, to) {
-  var error = new Error(
-    (prefix + " has been installed but it has no any path like " + (to.path))
-  );
-  // @ts-ignore
-  error.code = LOAD_DUPLICATE_WITHOUT_PATH;
-
-  getRootApp().$emit(LOAD_ERROR, error);
 }
 
 /**
@@ -1181,17 +1227,18 @@ var DEFAULT_CONFIG = {
  * @property {{}} [matcher]
  * @typedef {VueRouter & VueMfeRouter} Router
  *
- * @typedef {Object<string,{}>|Object<string, string[]>|Object<string, {}[]>} Resource
- *
- * @callback ResourcesFn
- * @returns {Resource|Resource[]|Promise<Resource>}
- * @typedef {ResourcesFn|Resource|Resource[]} Resources
- *
  * @typedef AppConfig
  * @property {Router} router 主应用 VueRouter 根实例
  * @property {boolean} [sensitive] 是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
  * @property {string} [parentPath] default parent path
  * @property {Resources} resources 获取资源的配置函数，支持同步/异步的函数/对象
+
+ * @typedef {Object<string, {}>|Object<string, string[]>|Object<string, {}[]>} RawResource
+ * @typedef {RawResource & AppConfig & SubAppConfig} Resource
+ *
+ * @callback ResourcesFn
+ * @returns {Resource|Resource[]|Promise<Resource>}
+ * @typedef {ResourcesFn|Resource|Resource[]} Resources
  *
  * @param {AppConfig} config
  *
