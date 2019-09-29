@@ -1,4 +1,4 @@
-import { isString, isFunction, isObject } from '../../utils/type'
+import { isString, isObject } from '../../utils/type'
 
 /**
  * @typedef {import("../..").AppConfig} AppConfig
@@ -6,32 +6,6 @@ import { isString, isFunction, isObject } from '../../utils/type'
  */
 /** @type {Map<string, SubAppConfig>} */
 const configMap = new Map()
-
-/**
- * getResource
- * @param {string} prefix
- * @returns {import('../..').Resources}
- */
-export const getResource = (prefix) => {
-  // 1. 先取 SubApp.config
-  let config = getConfig(prefix)
-
-  if (!config || !config.resources) {
-    // 2. 再取 HostApp.config
-    config = getConfig()
-  }
-
-  if (config && config.resources) {
-    if (isFunction(config.resources)) {
-      // @ts-ignore
-      return config.resources()
-    }
-
-    if (isObject(config.resources)) {
-      return config.resources
-    }
-  }
-}
 
 /**
  * @returns {import('../..').Router}
