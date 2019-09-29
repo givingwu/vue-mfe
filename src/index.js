@@ -18,17 +18,18 @@ import { DEFAULT_CONFIG } from './constants/DEFAULT_CONFIG'
  * @property {{}} [matcher]
  * @typedef {VueRouter & VueMfeRouter} Router
  *
- * @typedef {Object<string,{}>|Object<string, string[]>|Object<string, {}[]>} Resource
- *
- * @callback ResourcesFn
- * @returns {Resource|Resource[]|Promise<Resource>}
- * @typedef {ResourcesFn|Resource|Resource[]} Resources
- *
  * @typedef AppConfig
  * @property {Router} router 主应用 VueRouter 根实例
  * @property {boolean} [sensitive] 是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
  * @property {string} [parentPath] default parent path
  * @property {Resources} resources 获取资源的配置函数，支持同步/异步的函数/对象
+
+ * @typedef {Object<string, {}>|Object<string, string[]>|Object<string, {}[]>} RawResource
+ * @typedef {RawResource & AppConfig & SubAppConfig} Resource
+ *
+ * @callback ResourcesFn
+ * @returns {Resource|Resource[]|Promise<Resource>}
+ * @typedef {ResourcesFn|Resource|Resource[]} Resources
  *
  * @param {AppConfig} config
  *

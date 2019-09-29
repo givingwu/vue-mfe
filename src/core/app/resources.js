@@ -2,8 +2,6 @@ import { isObject, isFunction } from '../../utils/type'
 import { getConfig } from './config'
 
 /**
- * @typedef {import("../..").AppConfig} AppConfig
- * @typedef {import("../..").SubAppConfig} SubAppConfig
  * @typedef {import('../..').Resources} Resources
  */
 /** @type {Map<string, Resources>} */
