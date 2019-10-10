@@ -1,5 +1,7 @@
 import { install as installApp } from '../install'
 import { completePath, findMatchedName } from '../../utils/path'
+import { createError } from '../../helpers/create-error'
+import { LOAD_ERROR_HAPPENED } from '../../constants/ERROR_CODE'
 
 const appMap = {}
 
@@ -18,6 +20,17 @@ export const registerChildren = (apps, path) => {
       }
     })
   }
+}
+
+export function installChildren(children, args) {
+  const { next, to, name } = args
+
+  return installApps(children)
+    .then((success) => success && next && to && next(to))
+    .catch((error) => {
+      // eslint-disable-next-line no-console
+      createError(error, '', LOAD_ERROR_HAPPENED, name, args)
+    })
 }
 
 export const getChildrenApp = (path) => {
