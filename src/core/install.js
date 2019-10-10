@@ -1,12 +1,12 @@
+import { load } from '../helpers/loader'
+import { isRoute } from '../utils/route'
+import { createError } from '../helpers/create-error'
 import { isInstalled, setAppStatus } from './app/status'
 import { getRootApp, getRouter, getConfig } from './app/config'
-import { load } from '../helpers/loader'
-import { createError } from '../helpers/create-error'
-import { isRoute } from '../utils/route'
 import { isArray, isObject, isFunction } from '../utils/type'
 import { LOAD_ERROR_HAPPENED } from '../constants/ERROR_CODE'
 import { START, SUCCESS, FAILED } from '../constants/LOAD_STATUS'
-import { LOAD_START, LOAD_SUCCESS, LOAD_ERROR } from '../constants/EVENT_TYPE'
+import { LOAD_START, LOAD_SUCCESS } from '../constants/EVENT_TYPE'
 
 /**
  * @typedef {import('../index').Route} Route
