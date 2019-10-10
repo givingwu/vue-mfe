@@ -27,8 +27,12 @@ export function findMatchedName(map, key) {
  * @returns {string}
  */
 export function completePath(path, parentPath) {
-  if (parentPath === '/' && path !== '/' && path.startsWith('/')) {
-    return ensurePathSlash(path)
+  if (parentPath === '/') {
+    if (path !== '/') {
+      return ensurePathSlash(path)
+    } else {
+      return parentPath
+    }
   } else {
     return ensurePathSlash(parentPath) + ensurePathSlash(path)
   }
