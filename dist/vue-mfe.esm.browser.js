@@ -5,24 +5,10 @@
   */
 import VueRouter from 'vue-router';
 
-const SUCCESS = 1;
-const START = 0;
-const FAILED = -1;
-
-// 记录 app 加载状态
-const appStatus = {};
-
-/**
- * isInstalled
- * @param {string} prefix
- */
-function isInstalled(prefix) {
-  return appStatus[prefix] === SUCCESS
-}
-
-function setAppStatus(prefix, status) {
-  return (appStatus[prefix] = status)
-}
+// @ts-ignore
+const isDev = "development" === 'development';
+// export const isMaster = true !== undefined
+// export const isPortal = !isMaster || undefined !== undefined
 
 const isArray = (arr) => Array.isArray(arr);
 
@@ -31,73 +17,6 @@ const isFunction = (fn) => fn && typeof fn === 'function';
 const isObject = (obj) => obj && typeof obj === 'object';
 
 const isString = (str) => typeof str === 'string';
-
-/**
- * @typedef {import("../..").AppConfig} AppConfig
- * @typedef {import("../..").SubAppConfig} SubAppConfig
- */
-/** @type {Map<string, SubAppConfig>} */
-const configMap = new Map();
-
-/**
- * @returns {import('../..').Router}
- */
-// @ts-ignore
-const getRouter = () => getConfig().router;
-
-const getRootApp = () => getRouter().app;
-
-/**
- * getVarName
- * @param {string} prefix
- */
-const getVarName = (prefix) => {
-  return getConfig(prefix).globalVar || '__domain__app__' + prefix
-};
-
-/**
- * getAppName
- * @param {string} prefix
- */
-const getAppName = (prefix) => {
-  return getConfig(prefix).name
-};
-
-/**
- * getConfig
- * @param {string} prefix
- * @returns {SubAppConfig}
- */
-const getConfig = (prefix = '*') => {
-  // @ts-ignore
-  return configMap.get(prefix) || {}
-};
-
-/**
- * registerApp 注册应用并记录配置到 configMap
- * @param {string|AppConfig|SubAppConfig} prefix
- * @param {SubAppConfig} [config]
- */
-const registerApp = (prefix, config) => {
-  // 默认的全局配置为 { *: config }
-  if (isObject(prefix)) {
-    // @ts-ignore
-    config = prefix;
-    prefix = config.prefix || '*';
-  }
-
-  if (isString(prefix) && isObject(config)) {
-    // @ts-ignore
-    return configMap.set(prefix, config)
-  }
-
-  return false
-};
-
-// @ts-ignore
-const isDev = "development" === 'development';
-// export const isMaster = true !== undefined
-// export const isPortal = !isMaster || undefined !== undefined
 
 const hasConsole = // eslint-disable-next-line no-console
   typeof console !== 'undefined' && typeof console.warn === 'function';
@@ -227,6 +146,68 @@ function remove(ele) {
     }
   }
 }
+
+/**
+ * @typedef {import("../..").AppConfig} AppConfig
+ * @typedef {import("../..").SubAppConfig} SubAppConfig
+ */
+/** @type {Map<string, SubAppConfig>} */
+const configMap = new Map();
+
+/**
+ * @returns {import('../..').Router}
+ */
+// @ts-ignore
+const getRouter = () => getConfig().router;
+
+const getRootApp = () => getRouter().app;
+
+/**
+ * getVarName
+ * @param {string} prefix
+ */
+const getVarName = (prefix) => {
+  return getConfig(prefix).globalVar || '__domain__app__' + prefix
+};
+
+/**
+ * getAppName
+ * @param {string} prefix
+ */
+const getAppName = (prefix) => {
+  return getConfig(prefix).name
+};
+
+/**
+ * getConfig
+ * @param {string} prefix
+ * @returns {SubAppConfig}
+ */
+const getConfig = (prefix = '*') => {
+  // @ts-ignore
+  return configMap.get(prefix) || {}
+};
+
+/**
+ * registerApp 注册应用并记录配置到 configMap
+ * @param {string|AppConfig|SubAppConfig} prefix
+ * @param {SubAppConfig} [config]
+ */
+const registerApp = (prefix, config) => {
+  // 默认的全局配置为 { *: config }
+  if (isObject(prefix)) {
+    // @ts-ignore
+    config = prefix;
+    prefix = config.prefix || '*';
+  }
+
+  if (isString(prefix) && isObject(config)) {
+    // @ts-ignore
+    return configMap.set(prefix, config)
+  }
+
+  return false
+};
 
 /**
  * @typedef {import('../..').Resources} Resources
@@ -363,26 +344,6 @@ const serialExecute = (promises) => {
   }, Promise.resolve())
 };
 
-const LOAD_START = 'load-start';
-const LOAD_SUCCESS = 'load-success';
-const LOAD_ERROR = 'load-error';
-
-function createError(error, message, code, prefix, args) {
-  if (!error || !(error instanceof Error)) {
-    error = new Error(`【${getAppName(prefix) || prefix}】：` + message);
-  }
-
-  if (code && !error.code) {
-    error.code = code;
-  }
-
-  if (prefix && !error.name) {
-    error.name = prefix;
-  }
-
-  getRootApp().$emit(LOAD_ERROR, error, args);
-}
-
 /**
  * findRoute DFS
  * @typedef {import('vue-router').RouteConfig} Route
@@ -414,6 +375,64 @@ function findRoute(routes = [], path) {
  */
 function isRoute(obj) {
   return obj && isObject(obj) && obj.path && obj.component
+}
+
+const LOAD_START = 'load-start';
+const LOAD_SUCCESS = 'load-success';
+const LOAD_ERROR = 'load-error';
+
+function createError(error, message, code, prefix, args) {
+  if (!error) {
+    if (!(error instanceof Error)) {
+      error = new Error(`【${getAppName(prefix) || prefix}】：` + message);
+    }
+
+    // 如果非开发环境，将 ERROR 转换为普通对象，而非错误被抛出
+    if (!isDev) {
+      error = {
+        code: error.code || code,
+        message: error.message || message,
+        stack: error.stack
+      };
+    }
+  }
+
+  if (code && !error.code) {
+    error.code = code;
+  }
+
+  if (prefix && !error.name) {
+    error.name = prefix;
+  }
+
+  getRootApp().$emit(LOAD_ERROR, error, args);
+}
+
+const SUCCESS = 1;
+const START = 0;
+const FAILED = -1;
+
+// 记录 app 加载状态
+const appStatus = {};
+
+/**
+ * isInstalled 已安装
+ * @param {string} prefix
+ */
+function isInstalled(prefix) {
+  return appStatus[prefix] === SUCCESS
+}
+
+/**
+ * isInstalling 正在安装
+ * @param {string} prefix
+ */
+function isInstalling(prefix) {
+  return appStatus[prefix] === START
+}
+
+function setAppStatus(prefix, status) {
+  return (appStatus[prefix] = status)
 }
 
 const LOAD_ERROR_HAPPENED = 'LOAD_ERROR_HAPPENED';
@@ -828,8 +847,12 @@ function findMatchedName(map, key) {
  * @returns {string}
  */
 function completePath(path, parentPath) {
-  if (parentPath === '/' && path !== '/' && path.startsWith('/')) {
-    return ensurePathSlash(path)
+  if (parentPath === '/') {
+    if (path !== '/') {
+      return ensurePathSlash(path)
+    } else {
+      return parentPath
+    }
   } else {
     return ensurePathSlash(parentPath) + ensurePathSlash(path)
   }
@@ -872,6 +895,17 @@ const registerChildren = (apps, path) => {
     });
   }
 };
+
+function installChildren(children, args) {
+  const { next, to, name } = args;
+
+  return installApps(children)
+    .then((success) => success && next && to && next(to))
+    .catch((error) => {
+      // eslint-disable-next-line no-console
+      createError(error, '', LOAD_ERROR_HAPPENED, name, args);
+    })
+}
 
 const getChildrenApp = (path) => {
   let apps = appMap[path];
@@ -941,10 +975,13 @@ function refresh(routes, parentPath) {
   routes.forEach(
     ({ path, parentPath: selfParentPath, name, children, childrenApps }) => {
       /* 优先级 route.parentPath > addRouter(routes, parentPath) > VueMfe.defaultConfig.parentPath */
-      if (selfParentPath) {
-        path = genParentPath(path, selfParentPath, name);
-      } else if (parentPath) {
-        path = genParentPath(path, parentPath, name);
+
+      if (path) {
+        if (selfParentPath) {
+          path = genParentPath(path, selfParentPath, name);
+        } else if (parentPath) {
+          path = genParentPath(path, parentPath, name);
+        }
       }
 
       if (path) {
@@ -1116,6 +1153,10 @@ function registerHook(router) {
       const prefix = getAppPrefix(to.fullPath || to.path);
       const args = { name: prefix, to, from, next };
 
+      if (isInstalling(prefix)) {
+        return
+      }
+
       if (isInstalled(prefix)) {
         const children = getChildrenApp(to.fullPath || to.path);
 
@@ -1137,17 +1178,6 @@ function registerHook(router) {
       return next()
     }
   });
-}
-
-function installChildren(children, args) {
-  const { next, to, name } = args;
-
-  return installApps(children)
-    .then((success) => success && next && to && next(to))
-    .catch((error) => {
-      // eslint-disable-next-line no-console
-      createError(error, '', LOAD_ERROR_HAPPENED, name, args);
-    })
 }
 
 /**
@@ -1266,7 +1296,9 @@ const VueMfe = {
   Lazy,
   createApp,
   createSubApp,
-  isInstalled
+  isInstalled,
+  pathExists,
+  nameExists
 };
 
 // Auto install if it is not done yet and `window` has `Vue`.

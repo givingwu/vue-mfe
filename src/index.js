@@ -2,6 +2,7 @@ import { Lazy } from './core/lazy'
 import { registerApp } from './core/app/config'
 import { isInstalled } from './core/app/status'
 import { init as initRouter } from './core/init'
+import { pathExists, nameExists } from './core/router/path'
 import { DEFAULT_CONFIG } from './constants/DEFAULT_CONFIG'
 
 /**
@@ -90,7 +91,9 @@ const VueMfe = {
   Lazy,
   createApp,
   createSubApp,
-  isInstalled
+  isInstalled,
+  pathExists,
+  nameExists
 }
 
 // Auto install if it is not done yet and `window` has `Vue`.
