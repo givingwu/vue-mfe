@@ -1,13 +1,10 @@
 import { install } from './install'
-import { isInstalled } from './app/status'
 import { getAppPrefix } from '../utils/app'
 import { createError } from '../helpers/create-error'
-import { getChildrenApp, installApps } from './app/children'
+import { isInstalled, isInstalling } from './app/status'
+import { getChildrenApp, installChildren } from './app/children'
 import { isUnmatchableRoute } from './router/is-unmatchable-route'
-import {
-  LOAD_ERROR_HAPPENED,
-  LOAD_DUPLICATE_WITHOUT_PATH
-} from '../constants/ERROR_CODE'
+import { LOAD_DUPLICATE_WITHOUT_PATH } from '../constants/ERROR_CODE'
 
 /**
  * registerHook
@@ -20,6 +17,10 @@ export function registerHook(router) {
     if (isUnmatchableRoute(to)) {
       const prefix = getAppPrefix(to.fullPath || to.path)
       const args = { name: prefix, to, from, next }
+
+      if (isInstalling(prefix)) {
+        return
+      }
 
       if (isInstalled(prefix)) {
         const children = getChildrenApp(to.fullPath || to.path)
@@ -42,15 +43,4 @@ export function registerHook(router) {
       return next()
     }
   })
-}
-
-function installChildren(children, args) {
-  const { next, to, name } = args
-
-  return installApps(children)
-    .then((success) => success && next && to && next(to))
-    .catch((error) => {
-      // eslint-disable-next-line no-console
-      createError(error, '', LOAD_ERROR_HAPPENED, name, args)
-    })
 }
