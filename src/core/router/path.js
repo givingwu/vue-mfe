@@ -39,10 +39,13 @@ export function refresh(routes, parentPath) {
   routes.forEach(
     ({ path, parentPath: selfParentPath, name, children, childrenApps }) => {
       /* 优先级 route.parentPath > addRouter(routes, parentPath) > VueMfe.defaultConfig.parentPath */
-      if (selfParentPath) {
-        path = genParentPath(path, selfParentPath, name)
-      } else if (parentPath) {
-        path = genParentPath(path, parentPath, name)
+
+      if (path) {
+        if (selfParentPath) {
+          path = genParentPath(path, selfParentPath, name)
+        } else if (parentPath) {
+          path = genParentPath(path, parentPath, name)
+        }
       }
 
       if (path) {
