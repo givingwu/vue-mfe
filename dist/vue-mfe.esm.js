@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.7
+  * vue-mfe v1.0.8
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -995,7 +995,8 @@ function refresh(routes, parentPath) {
       var children = ref.children;
       var childrenApps = ref.childrenApps;
 
-      /* 优先级 route.parentPath > addRouter(routes, parentPath) > VueMfe.defaultConfig.parentPath */
+      /* 优先级 route.parentPath > VueMfe.SubAppConfig.parentPath >
+      VueMfe.AppConfig.parentPath > VueMfe.defaultConfig.parentPath */
 
       if (path) {
         if (selfParentPath) {
@@ -1319,7 +1320,7 @@ function createSubApp(config) {
 }
 
 var VueMfe = {
-  version: '1.0.7',
+  version: '1.0.8',
   Lazy: Lazy,
   createApp: createApp,
   createSubApp: createSubApp,

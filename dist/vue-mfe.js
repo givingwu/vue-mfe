@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.7
+  * vue-mfe v1.0.8
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -1326,7 +1326,7 @@ function createSubApp(config) {
 }
 
 var VueMfe = {
-  version: '1.0.7',
+  version: '1.0.8',
   Lazy: Lazy,
   createApp: createApp,
   createSubApp: createSubApp,
@@ -1358,4 +1358,3 @@ exports.default = VueMfe;
 Object.defineProperty(exports, '__esModule', { value: true });
 
 })));
-//# sourceMappingURL=vue-mfe.js.map

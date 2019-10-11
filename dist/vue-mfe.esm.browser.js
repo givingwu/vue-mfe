@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.7
+  * vue-mfe v1.0.8
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -974,7 +974,8 @@ const genParentPath = (path, parentPath, name) => {
 function refresh(routes, parentPath) {
   routes.forEach(
     ({ path, parentPath: selfParentPath, name, children, childrenApps }) => {
-      /* 优先级 route.parentPath > addRouter(routes, parentPath) > VueMfe.defaultConfig.parentPath */
+      /* 优先级 route.parentPath > VueMfe.SubAppConfig.parentPath >
+      VueMfe.AppConfig.parentPath > VueMfe.defaultConfig.parentPath */
 
       if (path) {
         if (selfParentPath) {
@@ -1292,7 +1293,7 @@ function createSubApp(config) {
 }
 
 const VueMfe = {
-  version: '1.0.7',
+  version: '1.0.8',
   Lazy,
   createApp,
   createSubApp,
