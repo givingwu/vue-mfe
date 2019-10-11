@@ -1001,7 +1001,8 @@ function refresh(routes, parentPath) {
       var children = ref.children;
       var childrenApps = ref.childrenApps;
 
-      /* 优先级 route.parentPath > addRouter(routes, parentPath) > VueMfe.defaultConfig.parentPath */
+      /* 优先级 route.parentPath > VueMfe.SubAppConfig.parentPath >
+      VueMfe.AppConfig.parentPath > VueMfe.defaultConfig.parentPath */
 
       if (path) {
         if (selfParentPath) {
@@ -1357,3 +1358,4 @@ exports.default = VueMfe;
 Object.defineProperty(exports, '__esModule', { value: true });
 
 })));
+//# sourceMappingURL=vue-mfe.js.map
