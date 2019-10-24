@@ -20,10 +20,10 @@ import { DEFAULT_CONFIG } from './constants/DEFAULT_CONFIG'
  * @typedef {VueRouter & VueMfeRouter} Router
  *
  * @typedef AppConfig
- * @property {Router} router 主应用 VueRouter 根实例
- * @property {boolean} [sensitive] 是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
- * @property {string} [parentPath] default parent path
- * @property {Resources} resources 获取资源的配置函数，支持同步/异步的函数/对象
+ * @property {Router} router 必选，主应用 VueRouter 根实例
+ * @property {boolean} [sensitive] 可选，默认 false，是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
+ * @property {string} [parentPath] 可选，默认 '/'，默认路由被嵌套的父路径
+ * @property {Resources} [resources] 可选，获取资源的配置函数，支持同步/异步的函数/对象。
 
  * @typedef {Object<string, {}>|Object<string, string[]>|Object<string, {}[]>} RawResource
  * @typedef {RawResource & AppConfig & SubAppConfig} Resource
@@ -49,14 +49,14 @@ export function createApp(config) {
 /**
  * createSubApp
  * @typedef {Object} SubAppConfig
- * @property {string} prefix 子应用被监听的路径前缀
- * @property {Route[]} routes 子应用需要被动态载入的路由
- * @property {string} [name] 子应用中文名称
+ * @property {string} prefix 必选，需要被拦截的子应用路由前缀
+ * @property {Route[]} routes 必选，需要被动态注入的子应用路由数组
+ * @property {string} [name] 可选，子应用的中文名称
  * @property {(app: Vue)=>boolean|Error|Promise<boolean|Error>} [init] 子应用初始化函数和方法
- * @property {string} [parentPath] 子应用注册的嵌套父路径
- * @property {Resources} [resources] 获取资源的配置函数，支持同步/异步的函数/对象
- * @property {string} [globalVar] 入口文件 app.umd.js 暴露出的全部变量名称
- * @property {Object<string, Function>} [components] 暴露出的所有组件
+ * @property {string} [parentPath] 可选，子应用默认的父路径/布局
+ * @property {Resources} [resources] 可选，子应用的 resources 配置项，获取资源的配置函数，支持同步/异步的函数/对象
+ * @property {string} [globalVar] 可选，入口文件 app.umd.js 暴露出的全部变量名称
+ * @property {Object<string, Function>} [components] 可选，暴露出的所有组件
  *
  * @param {SubAppConfig} config
  *
