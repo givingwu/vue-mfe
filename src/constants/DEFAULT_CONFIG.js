@@ -10,6 +10,8 @@ export const DEFAULT_CONFIG = {
   // 获取资源的配置函数，支持同步和异步
   /** @type {Object|Function} */
   resources: () => {
-    throw new Error()
+    throw new Error(
+      `Must implements 'resources: {[prefix: string]: Resources | () => Resources | () => Promise<Resources>}' by yourself.`
+    )
   }
 }
