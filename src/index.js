@@ -122,7 +122,12 @@ if (
 ) {
   // install VueMfe to global context
   // @ts-ignore
-  window.VueMfe = VueMfe
+  window.VueMfe =
+  // @ts-ignore
+    window.VueMfe && window.VueMfe.version === VueMfe.version
+    // @ts-ignore
+      ? window.VueMfe
+      : VueMfe
 }
 
 export default VueMfe
