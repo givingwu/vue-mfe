@@ -6,6 +6,7 @@
 import VueRouter from 'vue-router';
 
 // @ts-ignore
+// eslint-disable-next-line no-undef
 const isDev = "development" === 'development';
 // export const isMaster = true !== undefined
 // export const isPortal = !isMaster || undefined !== undefined
@@ -209,6 +210,32 @@ const registerApp = (prefix, config) => {
   return false
 };
 
+const LOAD_START = 'load-start';
+const LOAD_SUCCESS = 'load-success';
+const LOAD_ERROR = 'load-error';
+
+function createError(error, message, code, prefix, args) {
+  if (!error) {
+    if (!(error instanceof Error)) {
+      error = new Error(`【${getAppName(prefix) || prefix}】：` + message);
+    }
+  }
+
+  if (code && !error.code) {
+    error.code = code;
+  }
+
+  if (prefix && !error.name) {
+    error.name = prefix;
+  }
+
+  getRootApp().$emit(LOAD_ERROR, error, args);
+}
+
+const LOAD_RESOURCES_ERROR = 'LOAD_RESOURCES_ERROR';
+const LOAD_ERROR_HAPPENED = 'LOAD_ERROR_HAPPENED';
+const LOAD_DUPLICATE_WITHOUT_PATH = 'LOAD_DUPLICATE_WITHOUT_PATH';
+
 /**
  * @typedef {import('../..').Resources} Resources
  */
@@ -228,29 +255,38 @@ const getResource = (prefix) => {
     return cached
   }
 
-  // 1. 再取 SubApp.config
-  let config = getConfig(prefix);
+  try {
+    // 1. 再取 SubApp.config
+    let config = getConfig(prefix);
 
-  if (!config || !config.resources) {
-    // 2. 最后取 HostApp.config
-    config = getConfig();
-  }
-
-  if (config && config.resources) {
-    if (isFunction(config.resources)) {
-      // @ts-ignore
-      const resource = config.resources();
-      resources.set(prefix, resource);
-
-      return resource
+    if (!config || !config.resources) {
+      // 2. 最后取 HostApp.config
+      config = getConfig();
     }
 
-    if (isObject(config.resources)) {
-      const resource = config.resources;
-      resources.set(prefix, resource);
+    if (config && config.resources) {
+      if (isFunction(config.resources)) {
+        // @ts-ignore
+        const resource = config.resources();
+        resources.set(prefix, resource);
 
-      return resource
+        return resource
+      }
+
+      if (isObject(config.resources)) {
+        const resource = config.resources;
+        resources.set(prefix, resource);
+
+        return resource
+      }
     }
+  } catch (error) {
+    createError(
+      error,
+      `Cannot get the resources .`,
+      LOAD_RESOURCES_ERROR,
+      prefix
+    );
   }
 };
 
@@ -276,7 +312,6 @@ function load(prefix) {
               getVarName(prefix)
             ))
       } catch (error) {
-        console.log('error: ', error);
         throw new Error(error)
       }
     })
@@ -317,9 +352,9 @@ const install = (urls, name) => {
     return serialExecute(
       // @ts-ignore
       scripts.map((script) => () => lazyLoadScript(script, name))
-    ).catch((error) => {
-      warn(error);
-    })
+    )/* .catch((error) => {
+      warn(error)
+    }) */
   } else {
     warn(`No any valid script be found in ${urls}`);
   }
@@ -377,37 +412,6 @@ function isRoute(obj) {
   return obj && isObject(obj) && obj.path && obj.component
 }
 
-const LOAD_START = 'load-start';
-const LOAD_SUCCESS = 'load-success';
-const LOAD_ERROR = 'load-error';
-
-function createError(error, message, code, prefix, args) {
-  if (!error) {
-    if (!(error instanceof Error)) {
-      error = new Error(`【${getAppName(prefix) || prefix}】：` + message);
-    }
-
-    // 如果非开发环境，将 ERROR 转换为普通对象，而非错误被抛出
-    if (!isDev) {
-      error = {
-        code: error.code || code,
-        message: error.message || message,
-        stack: error.stack
-      };
-    }
-  }
-
-  if (code && !error.code) {
-    error.code = code;
-  }
-
-  if (prefix && !error.name) {
-    error.name = prefix;
-  }
-
-  getRootApp().$emit(LOAD_ERROR, error, args);
-}
-
 const SUCCESS = 1;
 const START = 0;
 const FAILED = -1;
@@ -434,9 +438,6 @@ function isInstalling(prefix) {
 function setAppStatus(prefix, status) {
   return (appStatus[prefix] = status)
 }
-
-const LOAD_ERROR_HAPPENED = 'LOAD_ERROR_HAPPENED';
-const LOAD_DUPLICATE_WITHOUT_PATH = 'LOAD_DUPLICATE_WITHOUT_PATH';
 
 /**
  * @typedef {import('../index').Route} Route
@@ -572,11 +573,11 @@ const getFirstWord = (str, delimiter = '/') =>
  *  1. 远程组件内部必须自包含样式
  *  2. 远程组件同样支持分片加载
  *  3. 可以引入所有被暴露的模块
- * @param {string} url appName+delimiter+[moduleName?]+componentName
+ * @param {string} url appName+delimiter+[propertyName?]+[+delimiter+propertyName?]
  * @param {string} [delimiter] 分隔符
- * @example 引入特定 appName 应用下特定 moduleName 下特定 componentName
+ * @example 引入特定 appName 应用下特定 propertyName
  *  ```js
- *    const LazyComponent = VueMfe.lazy('appName.moduleName.componentName')
+ *    const LazyComponent = VueMfe.lazy('appName.propertyName')
  *  ```
  * @example 引入 workflow 下入口文件暴露出的 FlowLayout 组件，wf 为 appName，FlowLayout 为 portal.entry.js module 暴露出的变量
  *  ```js
@@ -1207,7 +1208,9 @@ const DEFAULT_CONFIG = {
   // 获取资源的配置函数，支持同步和异步
   /** @type {Object|Function} */
   resources: () => {
-    throw new Error()
+    throw new Error(
+      `Must implements 'resources: {[prefix: string]: Resources | () => Resources | () => Promise<Resources>}' by yourself.`
+    )
   }
 };
 
@@ -1226,17 +1229,17 @@ const DEFAULT_CONFIG = {
  * @typedef {VueRouter & VueMfeRouter} Router
  *
  * @typedef AppConfig
- * @property {Router} router 主应用 VueRouter 根实例
- * @property {boolean} [sensitive] 是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
- * @property {string} [parentPath] default parent path
- * @property {Resources} resources 获取资源的配置函数，支持同步/异步的函数/对象
+ * @property {Router} router 必选，主应用 VueRouter 根实例
+ * @property {boolean} [sensitive] 可选，默认 false，是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
+ * @property {string} [parentPath] 可选，默认 '/'，默认路由被嵌套的父路径
+ * @property {Resources} [resources] 可选，获取资源的配置函数，支持同步/异步的函数/对象。
 
- * @typedef {Object<string, {}>|Object<string, string[]>|Object<string, {}[]>} RawResource
- * @typedef {RawResource & AppConfig & SubAppConfig} Resource
+ * @typedef {SubAppConfig|Promise<SubAppConfig>|(()=>SubAppConfig)|(()=>Promise<SubAppConfig>)} ConfigResource
+ * @typedef {Object<string, string[]>|Object<string, ConfigResource>} Resource
  *
  * @callback ResourcesFn
  * @returns {Resource|Resource[]|Promise<Resource>}
- * @typedef {ResourcesFn|Resource|Resource[]} Resources
+ * @typedef {Resource|Resource[]|ResourcesFn} Resources
  *
  * @param {AppConfig} config
  *
@@ -1245,6 +1248,21 @@ const DEFAULT_CONFIG = {
  * 3. 懒加载无匹配路由的 resources
  */
 function createApp(config) {
+  // required property
+  if (!config.router) {
+    throw new Error(
+      `Missing property 'router: VueRouter' in config \n${JSON.stringify(
+        config
+      )}`
+    )
+  }
+
+  if (!(config.router instanceof VueRouter)) {
+    throw new Error(
+      `The router must be an instance of VueRouter not ${typeof config.router}`
+    )
+  }
+
   // At fist, set the global config with wildcard key '*'
   registerApp(Object.assign({}, DEFAULT_CONFIG, config));
 
@@ -1255,14 +1273,14 @@ function createApp(config) {
 /**
  * createSubApp
  * @typedef {Object} SubAppConfig
- * @property {string} prefix 子应用被监听的路径前缀
- * @property {Route[]} routes 子应用需要被动态载入的路由
- * @property {string} [name] 子应用中文名称
+ * @property {string} prefix 必选，需要被拦截的子应用路由前缀
+ * @property {Route[]} routes 必选，需要被动态注入的子应用路由数组
+ * @property {string} [name] 可选，子应用的中文名称
  * @property {(app: Vue)=>boolean|Error|Promise<boolean|Error>} [init] 子应用初始化函数和方法
- * @property {string} [parentPath] 子应用注册的嵌套父路径
- * @property {Resources} [resources] 获取资源的配置函数，支持同步/异步的函数/对象
- * @property {string} [globalVar] 入口文件 app.umd.js 暴露出的全部变量名称
- * @property {Object<string, Function>} [components] 暴露出的所有组件
+ * @property {string} [parentPath] 可选，子应用默认的父路径/布局
+ * @property {Resources} [resources] 可选，子应用的 resources 配置项，获取资源的配置函数，支持同步/异步的函数/对象
+ * @property {string} [globalVar] 可选，入口文件 app.umd.js 暴露出的全部变量名称
+ * @property {Object<string, (() => Promise<{}>)|{}>} [components] 可选，暴露出的所有组件
  *
  * @param {SubAppConfig} config
  *
@@ -1297,9 +1315,7 @@ const VueMfe = {
   Lazy,
   createApp,
   createSubApp,
-  isInstalled,
-  pathExists,
-  nameExists
+  isInstalled
 };
 
 // Auto install if it is not done yet and `window` has `Vue`.
@@ -1315,7 +1331,12 @@ if (
 ) {
   // install VueMfe to global context
   // @ts-ignore
-  window.VueMfe = VueMfe;
+  window.VueMfe =
+  // @ts-ignore
+    window.VueMfe && window.VueMfe.version === VueMfe.version
+    // @ts-ignore
+      ? window.VueMfe
+      : VueMfe;
 }
 
 export default VueMfe;
