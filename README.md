@@ -199,6 +199,7 @@ VueMfe.isInstalled('demo')
 ## TODO
 + [ ] unit test cases
 + [x] deploy docs by vuepress & netlify
++ [ ] update docs with newest features
 + [x] publish package to npm registry
 
 

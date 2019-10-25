@@ -10,7 +10,7 @@
   "scripts": {
     "publish-lab": "npm version patch && npm publish --registry=http://172.16.0.132:18081/repository/npm-lab/ && npm run git-push",
     "git-push": "git add . && git commit -m \"update: publish package\" && git push",
-    "example": "cd example/root-app && vue serve --open",
+    "example": "cd example/root-app/src && vue serve --open",
     "test": "echo \"Error: no test specified\" && exit 1",
     "watch": "node build/watch.js",
     "dev": "rollup -wm -c build/rollup.dev.config.js",
