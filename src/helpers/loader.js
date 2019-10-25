@@ -26,7 +26,6 @@ export function load(prefix) {
               getVarName(prefix)
             ))
       } catch (error) {
-        console.log('error: ', error)
         throw new Error(error)
       }
     })
@@ -67,9 +66,9 @@ const install = (urls, name) => {
     return serialExecute(
       // @ts-ignore
       scripts.map((script) => () => lazyLoadScript(script, name))
-    ).catch((error) => {
+    )/* .catch((error) => {
       warn(error)
-    })
+    }) */
   } else {
     warn(`No any valid script be found in ${urls}`)
   }

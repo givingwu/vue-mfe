@@ -1,8 +1,8 @@
+import VueRouter from 'vue-router'
 import { Lazy } from './core/lazy'
 import { registerApp } from './core/app/config'
 import { isInstalled } from './core/app/status'
 import { init as initRouter } from './core/init'
-import { pathExists, nameExists } from './core/router/path'
 import { DEFAULT_CONFIG } from './constants/DEFAULT_CONFIG'
 
 /**
@@ -25,12 +25,12 @@ import { DEFAULT_CONFIG } from './constants/DEFAULT_CONFIG'
  * @property {string} [parentPath] 可选，默认 '/'，默认路由被嵌套的父路径
  * @property {Resources} [resources] 可选，获取资源的配置函数，支持同步/异步的函数/对象。
 
- * @typedef {Object<string, {}>|Object<string, string[]>|Object<string, {}[]>} RawResource
- * @typedef {RawResource & AppConfig & SubAppConfig} Resource
+ * @typedef {SubAppConfig|Promise<SubAppConfig>|(()=>SubAppConfig)|(()=>Promise<SubAppConfig>)} ConfigResource
+ * @typedef {Object<string, string[]>|Object<string, ConfigResource>} Resource
  *
  * @callback ResourcesFn
  * @returns {Resource|Resource[]|Promise<Resource>}
- * @typedef {ResourcesFn|Resource|Resource[]} Resources
+ * @typedef {Resource|Resource[]|ResourcesFn} Resources
  *
  * @param {AppConfig} config
  *
@@ -39,6 +39,21 @@ import { DEFAULT_CONFIG } from './constants/DEFAULT_CONFIG'
  * 3. 懒加载无匹配路由的 resources
  */
 export function createApp(config) {
+  // required property
+  if (!config.router) {
+    throw new Error(
+      `Missing property 'router: VueRouter' in config \n${JSON.stringify(
+        config
+      )}`
+    )
+  }
+
+  if (!(config.router instanceof VueRouter)) {
+    throw new Error(
+      `The router must be an instance of VueRouter not ${typeof config.router}`
+    )
+  }
+
   // At fist, set the global config with wildcard key '*'
   registerApp(Object.assign({}, DEFAULT_CONFIG, config))
 
@@ -56,7 +71,7 @@ export function createApp(config) {
  * @property {string} [parentPath] 可选，子应用默认的父路径/布局
  * @property {Resources} [resources] 可选，子应用的 resources 配置项，获取资源的配置函数，支持同步/异步的函数/对象
  * @property {string} [globalVar] 可选，入口文件 app.umd.js 暴露出的全部变量名称
- * @property {Object<string, Function>} [components] 可选，暴露出的所有组件
+ * @property {Object<string, (() => Promise<{}>)|{}>} [components] 可选，暴露出的所有组件
  *
  * @param {SubAppConfig} config
  *
@@ -91,9 +106,7 @@ const VueMfe = {
   Lazy,
   createApp,
   createSubApp,
-  isInstalled,
-  pathExists,
-  nameExists
+  isInstalled
 }
 
 // Auto install if it is not done yet and `window` has `Vue`.

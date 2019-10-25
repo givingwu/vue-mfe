@@ -1,5 +1,7 @@
-import { isObject, isFunction } from '../../utils/type'
 import { getConfig } from './config'
+import { isObject, isFunction } from '../../utils/type'
+import { createError } from '../../helpers/create-error'
+import { LOAD_RESOURCES_ERROR } from '../../constants/ERROR_CODE'
 
 /**
  * @typedef {import('../..').Resources} Resources
@@ -20,28 +22,37 @@ export const getResource = (prefix) => {
     return cached
   }
 
-  // 1. 再取 SubApp.config
-  let config = getConfig(prefix)
+  try {
+    // 1. 再取 SubApp.config
+    let config = getConfig(prefix)
 
-  if (!config || !config.resources) {
-    // 2. 最后取 HostApp.config
-    config = getConfig()
-  }
-
-  if (config && config.resources) {
-    if (isFunction(config.resources)) {
-      // @ts-ignore
-      const resource = config.resources()
-      resources.set(prefix, resource)
-
-      return resource
+    if (!config || !config.resources) {
+      // 2. 最后取 HostApp.config
+      config = getConfig()
     }
 
-    if (isObject(config.resources)) {
-      const resource = config.resources
-      resources.set(prefix, resource)
+    if (config && config.resources) {
+      if (isFunction(config.resources)) {
+        // @ts-ignore
+        const resource = config.resources()
+        resources.set(prefix, resource)
 
-      return resource
+        return resource
+      }
+
+      if (isObject(config.resources)) {
+        const resource = config.resources
+        resources.set(prefix, resource)
+
+        return resource
+      }
     }
+  } catch (error) {
+    createError(
+      error,
+      `Cannot get the resources .`,
+      LOAD_RESOURCES_ERROR,
+      prefix
+    )
   }
 }

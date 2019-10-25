@@ -11,11 +11,11 @@ import { load } from '../helpers/loader'
  *  1. 远程组件内部必须自包含样式
  *  2. 远程组件同样支持分片加载
  *  3. 可以引入所有被暴露的模块
- * @param {string} url appName+delimiter+[moduleName?]+componentName
+ * @param {string} url appName+delimiter+[propertyName?]+[+delimiter+propertyName?]
  * @param {string} [delimiter] 分隔符
- * @example 引入特定 appName 应用下特定 moduleName 下特定 componentName
+ * @example 引入特定 appName 应用下特定 propertyName
  *  ```js
- *    const LazyComponent = VueMfe.lazy('appName.moduleName.componentName')
+ *    const LazyComponent = VueMfe.lazy('appName.propertyName')
  *  ```
  * @example 引入 workflow 下入口文件暴露出的 FlowLayout 组件，wf 为 appName，FlowLayout 为 portal.entry.js module 暴露出的变量
  *  ```js
