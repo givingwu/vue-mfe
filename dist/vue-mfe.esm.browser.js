@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.0.8
+  * vue-mfe v1.1.0
   * (c) 2019 Vuchan
   * @license MIT
   */
@@ -1311,7 +1311,7 @@ function createSubApp(config) {
 }
 
 const VueMfe = {
-  version: '1.0.8',
+  version: '1.1.0',
   Lazy,
   createApp,
   createSubApp,
