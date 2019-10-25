@@ -11,7 +11,7 @@
 
 # VueMfe
 
-✨😊 基于 Vue.js 设计的微前端解决方案. [English](./README-en_US.md) | [示例](https://vuchan.github.io/vue-mfe)
+✨😊 A micro-frontend solution based on Vue.js. [中文](./README-zh_CN.md) | [DEMO](https://vuchan.github.io/vue-mfe)
 
 ```bash
 ___________
@@ -21,15 +21,16 @@ ___________
 
 
 ## FEATURES
-+ 支持动态注入子路由、嵌套路由。
-+ 支持通过动态路由懒加载应用、嵌套子应用。
-+ 支持远程懒加载模块或者组件。
-+ 支持子应用独立打包，独立构建，独立运行(需插件支持)。
++ Support dynamically add child routes to an existing route & nested route.
++ Support dynamically load sub-application & nested sub-application.
++ Support lazy load module or component from remote.
++ Support sub-application independently develop & build(need mfe plugin supports).
 
 
 ## How
 
-Vue-MFE 实现的微前端原理是基于基座(App)，当基座项目拦截到无匹配项的路由后会尝试动态加载子应用(SubApp)的路由。并在子应用路由被成功注入到基座的路由实例 `this.$router` 后 `next(to)` 从而实现完整闭环。
+The micro-frontend principle implemented by Vue-MFE is based on the pedestal (App). When the pedestal project intercepts the route without matching, it will try to dynamically load the sub-application (SubApp) routes. And after the sub-application routes is successfully injected into the pedestal's routing instance `this.$router`, `next(to)` thus achieves a complete closed loop.
+
 
 <p align="center">
   <img alt="vue-mfe base info" src="docs/.vuepress/public/images/vue-mfe-base.jpeg" width="600" height="400">
@@ -47,16 +48,13 @@ npm run example
 
 ### Step 1
 
-创建基座应用，因为这里需要注册 `router` 实例的 `beforeHook` 钩子，所以 `router` 为必填项。
+Create the VueMfe pedestal(root) application, because we need to register the `beforeHook` hook of the `router` instance, so the `router` parameter is required.
 
 ```js
 import router from '@@/router/index'
 import { createApp } from 'vue-mfe'
 
-// 主运行时
-/** @type {VueComponent & VueMfeApp} */
 export default createApp({
-  /** @type {VueRouter} */
   router
 })
 ```
@@ -64,7 +62,7 @@ export default createApp({
 
 ### Step 2
 
-创建子应用。可以创建任意多个子应用，前提是 prefix 不能重复。
+Create VueMfe sub-application, you can create arbitrary amount of them but must take care of that each prefix cannot be duplicated.
 
 ```js
 import routes from './router/routes.js'
@@ -74,8 +72,7 @@ export default createSubApp({
   prefix: '/demo',
   routes,
   name: '示例',
-  // 模拟从本地加载资源
-  // resources 中的资源会被按顺序安装和执行
+  // resources will be installed and executed sequentially
   resources: []
 })
 ```
@@ -83,16 +80,18 @@ export default createSubApp({
 
 ## API
 
-+ `VueMfe.createApp({}: AppConfig)` 创建主(基座)应用 [source code](./src/index.js)
++ `VueMfe.createApp({}: AppConfig)` create the root(pedestal) application [source code](./src/index.js#L42)
 
 ```js
+import { createApp } from 'vue-mfe'
+
 /**
  * createApp
  * @typedef AppConfig
- * @property {Router} router 必选，主应用 VueRouter 根实例
- * @property {boolean} [sensitive] 可选，默认 false，是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
- * @property {string} [parentPath] 可选，默认 '/'，默认路由被嵌套的父路径
- * @property {Resources} [resources] 可选，获取资源的配置函数，支持同步/异步的函数/对象。resources 中返回的资源会按顺序安装和执行，且 SubAppConfig.resources > AppConfig.resources
+ * @property {Router} router required, the router instance of the root(pedestal) app
+ * @property {boolean} [sensitive] optional, default is `false`，is the path sensitive or not for word case? '/AuTh/uSEr' => '/auth/user'
+ * @property {string} [parentPath] optional，default is `'/'`, where the dynamically routes be injected?
+ * @property {Resources} [resources] optional, the resources support async/async function or object. them will be installed and executed sequentially and SubAppConfig.resources > AppConfig.resources
  * @typedef {Object<string, {}>|Object<string, string[]>|Object<string, {}[]>} RawResource
  * @typedef {RawResource & AppConfig & SubAppConfig} Resource
  *
@@ -102,54 +101,53 @@ export default createSubApp({
  *
  * @param {AppConfig} config
  *
- * 1. 初始化路由，记录 rootApp
- * 2. 添加钩子，拦截无匹配路由
- * 3. 懒加载无匹配路由的 resources
+ * 1. initialize router and register the root application with its config
+ * 2. register the before hook to intercepts the unmatchable route
+ * 3. lazy load the resources of the unmatchable route if it has
  */
 export default createApp({
   router,
   sensitive: false,
-  // 默认的 parentPath => router.addRoutes(routes, parentPath)
   parentPath: '/',
-  // 获取资源的配置函数/对象，支持同步/异步
-  /** @type {{[prop: string]: Resource|Resource[]}|() => (Resource|Resource[])} */
   resources: () => {},
 })
 ```
 
-+ `VueMfe.createSubApp({}: SubAppConfig)` 创建子应用 [source code](./src/index.js)
+
++ `VueMfe.createSubApp({}: SubAppConfig)` create a sub-application [source code](./src/index.js#L85)
 
 ```js
+import { createSubApp } from 'vue-mfe'
+
 /**
  * createSubApp
  * @typedef {Object} SubAppConfig
- * @property {string} prefix 必选，需要被拦截的子应用路由前缀
- * @property {Route[]} routes 必选，需要被动态注入的子应用路由数组
- * @property {string} [name] 可选，子应用的中文名称
- * @property {(app: Vue)=>boolean|Error|Promise<boolean|Error>} [init] 子应用初始化函数和方法
- * @property {string} [parentPath] 可选，子应用默认的父路径/布局
- * @property {Resources} [resources] 可选，子应用的 resources 配置项，获取资源的配置函数，支持同步/异步的函数/对象
- * @property {string} [globalVar] 可选，入口文件 app.umd.js 暴露出的全部变量名称
- * @property {Object<string, Function>} [components] 可选，暴露出的所有组件
+ * @property {string} prefix required, sup-application route prefix that needs to be intercepted
+ * @property {Route[]} routes required, sup-application routes config array that needs to be dynamically injected
+ * @property {string} [name] optional, sup-application name string not prefix
+ * @property {(rootApp: Vue)=>boolean|Error|Promise<boolean|Error>} [init] sup-application initialize method, it receive the root app instance as the first parameter
+ * @property {string} [parentPath] optional, where the sup-application routes be dynamically injected to?
+ * @property {Resources} [resources] optional, an object or a function it given the resources of current application
+ * @property {string} [globalVar] optional，if the resource given a global variable key
+ * @property {Object<string, (() => Promise<{}>)|{}>} [components] optional, the components that need to be exposed
+ * @property {[props: string]: any} [props] the other properties be register or shared as what you want
  *
  * @param {SubAppConfig} config
  *
- * 1. 安装子应用调用 createSubApp 方法
- * 2. 调用 registerApp 刷新内部的维护的 configMap
- * 3. 执行 SubApp 的 init(app) => void|boolean 方法，初始化项目的前置依赖
- * 4. 初始化成功后返回 success 并安装子应用路由
- * 5. next(to) 到具体的子路由，END
+ * 1. when install a sub-application calls `createSubApp(this.$router.app)`
+ * 2. register current application configuration to inner `configMap`
+ * 3. call the `init(app) => void|boolean` method to initialize the pre-dependencies
+ * 4. dynamically install the routes to the specific parent path
+ * 5. next(to), END
  */
-export default VueMfe.createSubApp({
+export default createSubApp({
   prefix: '/demo',
   routes,
-  name: '示例应用',
+  name: 'example demo',
   parentPath: '/',
-  resources: ['main.xxxxxxx.css', 'demo.xxxx.umd.js', 'demo.xxxx.umd.js'],
-  /** @type {() => void|Promise<T>} init function */
-  init: () => {},
-  // 可选，子应用暴露出的组件。后续可通过 `Vue.Lazy('prefix.components.componentName')` 访问到子应用所暴露的对应组件。
-  /** @type {Object<string, Function|Object>} */
+  // the css needs to be install as first, then the chunk-vendors, last the umd.js
+  resources: ['main.xxxxxxx.css', 'chunk.xxxx.vendors.js', 'demo.xxxx.umd.js'],
+  init: (rootApp) => {},
   components: {
     example: () =>
       import('./components/example'),
@@ -157,29 +155,46 @@ export default VueMfe.createSubApp({
 })
 ```
 
-+ `VueMfe.Lazy(path: string)` 懒加载模块或者组件 [source code](./src/core/lazy.js)
+
++ `VueMfe.Lazy(path: string): Promise<any>` lazy load module or component [source code](./src/core/lazy.js)
 
 ```js
+import VueMfe from 'vue-mfe'
+
 /**
  * Lazy
- * @description 解析传入的名称获取应用前缀，懒加载应用并返回解析后的 module 内部变量
+ * @description resolve the application name by the given url, lazy load module or component from remote
  * @tutorial
- *  1. 远程组件内部必须自包含样式
- *  2. 远程组件同样支持分片加载
- *  3. 可以引入所有被暴露的模块
- * @param {string} url appName+delimiter+[moduleName?]+componentName
- * @param {string} [delimiter] 分隔符
- * @example 引入特定 appName 应用下特定 moduleName 下特定 componentName
+ *  1. if a remote component, css styles must be inside of the component
+ *  2. the remote module or component also support code-splitting
+ *  3. the all properties in `SubAppConfig` could be imported dynamically
+ * @param {string} url appName+delimiter+[propertyName?]+componentName
+ * @param {string} [delimiter]
+ * @example
  *  ```js
- *    const LazyComponent = VueMfe.lazy('appName.moduleName.componentName')
+ *    const LazyModule = VueMfe.lazy('appName.propertyName')
  *  ```
- * @example 引入 workflow 下入口文件暴露出的 FlowLayout 组件，wf 为 appName，FlowLayout 为 portal.entry.js module 暴露出的变量
+ * @example
  *  ```js
  *    const FlowLayout = VueMfe.lazy('wf.components.FlowLayout')
  *  ```
  */
 VueMfe.Lazy('demo.components.example')
 ```
+
+
++ `VueMfe.isInstalled(prefix: string): boolean` whether the application is installed or not [source code](./src/core/app/status.js)
+
+```js
+import VueMfe from 'vue-mfe'
+
+/**
+ * isInstalled
+ * @param {string} prefix
+ */
+VueMfe.isInstalled('demo')
+```
+
 
 ## TODO
 + [ ] unit test cases
