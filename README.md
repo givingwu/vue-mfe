@@ -205,4 +205,4 @@ VueMfe.isInstalled('demo')
 
 ## Thanks
 
-If it has any help or inspiration, please give me a star to light my days. And if you have any confusing problem just go to make an issue, i'll fix or answer it when i see that.
+If it has any help or inspiration, please give me a star to lights up my days. And if you have any confusing problem just make an issue, i'll fix or answer it when i see that.
