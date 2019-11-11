@@ -19,13 +19,13 @@ meta:
 + 将 主运行时 的 `router` 替换成 `vue-mfe/createMasterRouter` 以监听并懒加载 unmatched route ，且 `createMasterRouter(config)` 中的 `config.getResource` 方法可根据不同的模式和环境做的不同的匹配
 
 
-## domain-app
-+ domain-app 的 webpack entry 入口由原先的 `src/main.js` 改为 master-runtime 的 `getResource` 中配置的本地开发环境入口。
-+ domain-app 中原先 main.js 中的无副作用的初始化方法都要放进路由入口。
-+ domain-app 的 **默认路由入口** 是 `src/portal.entry.js`。
-+ domain-app 应该保持“**纯净**”且“**无副作用**”，**不侵入**任何 master-runtime 或其他 domain 逻辑，仅被支持的“外部状态”来自 master-runtime 中 Vuex 往下暴露的 `this.$store`。
+## sub-app
++ sub-app 的 webpack entry 入口由原先的 `src/main.js` 改为 master-runtime 的 `getResource` 中配置的本地开发环境入口。
++ sub-app 中原先 main.js 中的无副作用的初始化方法都要放进路由入口。
++ sub-app 的 **默认路由入口** 是 `src/portal.entry.js`。
++ sub-app 应该保持“**纯净**”且“**无副作用**”，**不侵入**任何 master-runtime 或其他 domain 逻辑，仅被支持的“外部状态”来自 master-runtime 中 Vuex 往下暴露的 `this.$store`。
 
-假设应用 domain-app-a 有以下目录结构:
+假设应用 sub-app-a 有以下目录结构:
 ```
 /src
   /common
@@ -37,11 +37,11 @@ meta:
     -routes.js
   /mixins
   -main.js // 应用入口
-  -portal.entry.js // domain-app 入口
+  -portal.entry.js // sub-app 入口
 ```
 
 ### BAD
-> domain-app 业务级的方法不应该影响全局状态
+> sub-app 业务级的方法不应该影响全局状态
 
 /src/portal.entry.js
 ```js
@@ -49,7 +49,7 @@ import Vue from 'vue'
 import CONSTANTS from './common/CONSTANTS'
 import routes from './router/routes'
 
-// 注入全局依赖后如果另一个 domain-app-b 也存在这样的赋值声明逻辑，则产生了冲突
+// 注入全局依赖后如果另一个 sub-app-b 也存在这样的赋值声明逻辑，则产生了冲突
 Vue.prototype.CONSTANTS = CONSTANTS
 
 export default routes
@@ -87,13 +87,13 @@ export {
 
 
 ## 强约定
-+ domain-app 的 **namespace** 必须唯一(namespace 默认是 `require('../package.json').name`)
-+ domain-app 的 **namespace** 必须同 built 的 UMD 暴露出来的全局变量一致
-+ domain-app 的 **路由 path 和 name** 必须以 namespace 开始以避免重复冲突导致路由动态注入失败
++ sub-app 的 **namespace** 必须唯一(namespace 默认是 `require('../package.json').name`)
++ sub-app 的 **namespace** 必须同 built 的 UMD 暴露出来的全局变量一致
++ sub-app 的 **路由 path 和 name** 必须以 namespace 开始以避免重复冲突导致路由动态注入失败
 
 ## 示例
 
-domain-app 目录下 `package.json` 的 name 是 `portal`：
+sub-app 目录下 `package.json` 的 name 是 `portal`：
 ```json
 // package.json
 {
@@ -101,7 +101,7 @@ domain-app 目录下 `package.json` 的 name 是 `portal`：
 }
 ```
 
-+ 则 domain-app 的 namespace 是 `portal`
++ 则 sub-app 的 namespace 是 `portal`
 + [webpack output](https://webpack.js.org/configuration/output/) built 之后的 umd `portal.umd.js` 暴露出的全局变量也必须是 `portal`
 
 ```js
