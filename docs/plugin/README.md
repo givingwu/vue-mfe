@@ -10,7 +10,7 @@ meta:
 
 # vue-cli-plugin-mfe
 
-为 vue-mfe 的 domain-app 量身打造的 Vue-CLI3 插件.
+为 vue-mfe 的 SubApp 量身打造的 Vue-CLI3 插件.
 
 
 ## FEATURES
@@ -25,7 +25,7 @@ meta:
 根据 `aliases.config.js` 自动生成 VSCode friendly `jsconfig.json` 方便别名跳转 peek，无需手动去寻找/记住别名定义
 
 ### vue-cli-service package
-`domain-app` 专属的打包命令，与原先的 `build` 命令做的事情非常类似。
+`SubApp` 专属的打包命令，与原先的 `build` 命令做的事情非常类似。
 
 + 更改 package 时候的 webpack entry 和 plugins，以 `['./src/portal.entry.js', './src/routes', './src/router/routes.js', './src/routes.js', './src/main.js']` 为基础自动探测在执行 `package` 时 `webpack` 依赖的入口 `entry`。
 + 集成 `webpack-require-from` 指定 domain runtime 的 CDN `download` 主机地址
@@ -56,7 +56,7 @@ Options:
 
 ## RUN
 
-`package` - 打包 DOMAIN-APP 成 微前端应用 的命令。
+`package` - 打包 SubApp 成 微前端应用 的命令。
 
 ```bash
 vue-cli-service package

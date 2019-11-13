@@ -9,48 +9,59 @@ lang: zh-CN
 
 
 ## 项目架构
-![macrocosmic-architecture-detail](/images/macrocosmic-architecture-detail.jpg)
 
+```
+ -----------------------------------------------------------------------------------------------
+|                       MasterRuntime = VueMfe.createApp(config: AppConfig)                     |
+| --------------------------------------------------------------------------------------------- |
+|   VueMfe.createSubApp(config: SubAppConfig)   |   VueMfe.createSubApp(config: SubAppConfig)   |
+| --------------------------------------------------------------------------------------------- |
+|   VueMfe.createSubApp(config: SubAppConfig)   |   VueMfe.createSubApp(config: SubAppConfig)   |
+ -----------------------------------------------------------------------------------------------
+```
 
-### package-server
-> 静态文件管理服务器。
+<!-- ### package-server
+> 静态文件管理服务器 or Your CDN Server address。
 
-+ 提供 domain-app 资源部署和上传/更新/回滚
-+ 提供接口获取 master-runtime 所有子 domain 的配置和 JS chunks 及 umd 入口
-+ 提供 socket 提示用户更新客户端代码
++ 支持 SubApp 资源部署和上传/更新/回滚
++ 支持获取 master-runtime 所有 SubApp 的入口依赖文件
++ 支持提示用户更新客户端代码当存在更新时 -->
 
 
 ### master-runtime
-> 主运行时项目，也可以称作基础、基座项目。
+> 主运行时项目，即基座项目。
 
-+ 通过 `VueMfe.createMasterRouter(config)` 注入主运行时路由，配置，钩子方法
-+ 提供公共 布局、组件、插件、数据 `$store` 等供 domain-app 使用
-+ 提供公共 登录、鉴权、校验 等公共逻辑供 domain-app 使用
-+ 通过 CDN 引入 UMD 格式公共依赖，再在每个 domain-app 中使用相同的 externals，优化JS文件大小和构建速度
++ 通过 `VueMfe.createApp(config)` 注入主路由，配置，钩子方法
++ 提供公共 布局、组件、插件、数据 `$store` 等供 SubApp 使用
++ 提供公共 登录、鉴权、校验 等公共逻辑供 SubApp 使用
 
+
+::: tip **如何处理公共依赖？**
+通过 CDN 引入 UMD 格式处理公共依赖，再在每个 SubApp 中使用相同的 externals，以优化JS文件大小和构建速度(因为SubApp 运行在 master-runtime 中)。
+:::
 
 ### [vue-mfe](README.md#how)
 
-> 抽离的工具库，聚焦在增强 master-runtime 的全局路由以支持 [Micro Front-end](README.md#mfe)。
+> 抽离的工具库，聚焦在增强 master-runtime 的全局路由实例`this.$root.$router`以支持 [Micro Front-end](README.md#mfe)。
 
-+ 提供中心化路由
-+ 提供路由拦截
-+ 提供资源懒加载器
-+ 支持动态装载路由
-+ 支持自定义 parentPath 注入路由(用于适配不同的layout)
-+ 增强原始路由方法 router.helpers
++ 提供中心化路由的 `beforeHook` 拦截
++ 提供资源懒加载器 `loader`
++ 支持动态装载路由 `addRoutes(routes: RouteConfig[], parentPath?: string)`
++ 提供远程模块加载 `VueMfe.Lazy(SubAppName.moduleName.propertyName)`
 
 
-### domain-app
+### SubApp
 
-> 每个不同的 domain 应用，即基于 master-runtime 的各个微应用。
+> 基于 master-runtime 的各个微应用。
 
-+ build 成 [UMD](https://www.davidbcalhoun.com/2014/what-is-amd-commonjs-and-umd/) 格式供 master-runtime 引入 webpack unmanaged bundle。(因为 master-runtime 和 domain-app 是不同的 webpack-build-runtime)
-+ build 的入口**必须是当前项目的路由**。 (因为该资源会被 `vue-mfe/lazyloader` 通过 UMD 的当前 namespace 的全局变量动态装载，命名空间模拟代码 namespace =>  `location.pathname.split('/').filter(Boolean)[0]`)
++ build 成 [UMD](https://www.davidbcalhoun.com/2014/what-is-amd-commonjs-and-umd/) 格式供 master-runtime 引入 webpack unmanaged bundle。
+::: tip
+子应用打包成 UMD 格式的主要原因是为了维护一个统一的 webpack build context。主运行时在 PRD 上跑的是 webpack 构建后的bundle 代码，而子应用也支持被独立构建，那么变成了两个独立的 webpack build context 构建生成的 bundle。当时没有找到好的解决办法，所有用 UMD 上了。而后续在写 `VueMfe.Lazy` 的时候看到了社区有一种实现方式是使用 XHR 把 JS 文件请求到后使用 `new Function(require, exports, ${ XHRResponse.bodyText })` 拼接后执行。类似这样[httpVueLoader ScriptContext.compile](https://github.com/FranckFreiburger/http-vue-loader/blob/master/src/httpVueLoader.js#L161)。
+:::
++ build 的入口**必须是执行 `VueMfe.createApp`的文件**。 (因为该资源会被 [vue-mfe/src/helpers/loader.js](https://github.com/vuchan/vue-mfe/blob/master/src/helpers/loader.js#L57) 通过 UMD 的暴露的全局变量动态装载。
 ::: warning
 路由的根路由必须以 `/${namespace}/` 开始，且 `${namespace}` 不能存在与另一 domain 的 namespace 重复，否则会抛出 `registerRoutes` 失败的错误
 :::
-+ 如果结合 [plugin](/plugin/) 需要在产品环境 **build** 时指定 **entry** 入口文件，若不使用 [plugin](/plugin/) 则参考 [Vue-CLI V3#build-targets](https://cli.vuejs.org/guide/build-targets.html#library) library 打包📦方式。
 
 
 ## DEMO
@@ -107,8 +118,8 @@ new Vue({
       <p>Current route name: {{ $route.name }}</p>
       <ul>
         <li><router-link :to="{ name: 'home' }">home</router-link></li>
-        <li><router-link :to="{ path: '/foo' }">domain-app foo</router-link></li>
-        <li><router-link :to="{ path: '/bar/123' }">domain-app bar</router-link></li>
+        <li><router-link :to="{ path: '/foo' }">SubApp foo</router-link></li>
+        <li><router-link :to="{ path: '/bar/123' }">SubApp bar</router-link></li>
       </ul>
       <router-view class="view"></router-view>
     </div>
@@ -117,7 +128,7 @@ new Vue({
 ```
 
 
-#### [domain-app](#domain-app) foo `./domain/foo/index.js`:
+#### [SubApp](#SubApp) foo `./domain/foo/index.js`:
 
 ```js
 window.__domain__app__foo = (function() {
@@ -129,7 +140,7 @@ window.__domain__app__foo = (function() {
       if (Math.random() > 0.5) {
         resolve(routes)
       } else {
-        const msg = 'initialize domain-app foo failed'
+        const msg = 'initialize SubApp foo failed'
         console.error(msg)
         reject(msg)
         throw new Error(msg)
@@ -139,7 +150,7 @@ window.__domain__app__foo = (function() {
 }())
 ```
 
-#### [domain-app](#domain-app) bar `./domain/bar/index.js`:
+#### [SubApp](#SubApp) bar `./domain/bar/index.js`:
 
 ```js
 window.__domain__app__bar = (function() {
@@ -160,18 +171,18 @@ window.__domain__app__bar = (function() {
 <<< @/src/router/index.js{4}
 
 ##### 发布应用
-将主运行时应用发布到仓库，供 [domain-app](#domain-app) 在开发时使用。
+将主运行时应用发布到仓库，供 [SubApp](#SubApp) 在开发时使用。
 
 ```bash
 cd $HOME/Development/WorkSpace/master-runtime-project
 npm publish --registry http://{yourPrivateNpmRepository}
 ```
 
-#### [domain-app](#domain-app) 配置
+#### [SubApp](#SubApp) 配置
 
 + 安装主运行时作为启动依赖
 `npm install {master-runtime-name} --save`
-+ 将 domain-app 的 [webpack entry](https://webpack.js.org/concepts/entry-points/) 修改为主运行时入口，[vue-cli3 修改 entry 的配置文档](https://cli.vuejs.org/config/#pages):
++ 将 SubApp 的 [webpack entry](https://webpack.js.org/concepts/entry-points/) 修改为主运行时入口，[vue-cli3 修改 entry 的配置文档](https://cli.vuejs.org/config/#pages):
 ```js
 module.exports = {
   configureWebpack: {
@@ -180,13 +191,13 @@ module.exports = {
 }
 ```
 
-+ 在 domain-app 中启动项目：
++ 在 SubApp 中启动项目：
 
 ```bash
 npm run start
 ```
 
-假设：domain-app 中有以下文件 `src/portal.entry.js`，则在本地启动后，访问路径`/portal/a` 时，如果在 master-runtime 项目路由表中不匹配该路由，则会调用 `router._config.getResource()` 方法并通过的 `vue-mfe/lazyloader` 懒加载该命名空间资源。
+假设：SubApp 中有以下文件 `src/portal.entry.js`，则在本地启动后，访问路径`/portal/a` 时，如果在 master-runtime 项目路由表中不匹配该路由，则会调用 `router._config.getResource()` 方法并通过的 `vue-mfe/lazyloader` 懒加载该命名空间资源。
 
 ```js
 { [require('@root/package.json').name]: import('@/portal.entry.js') }

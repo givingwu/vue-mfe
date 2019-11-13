@@ -1,6 +1,6 @@
 module.exports = {
   title: 'Vue-MFE',
-  description: '快速创建基于 Vue.js 的微前端应用',
+  description: '✨A micro-frontend solution based on Vue.js',
   serviceWorker: true,
 
   themeConfig: {
@@ -22,22 +22,8 @@ module.exports = {
         'coding-agreement',
         'enhanced-router',
         'notice-events',
-        // 'next-planning',
       ],
       '/plugin/': ['', 'getting-started'],
-      '/boilerplate/': [
-        '',
-        'development',
-        'architecture',
-        'tech',
-        'routing',
-        'state',
-        'tests',
-        'linting',
-        'editors',
-        'production',
-        'troubleshooting',
-      ],
       '/': ['', '/'],
     },
   },
