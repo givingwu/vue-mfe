@@ -11,7 +11,7 @@ module.exports = {
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/guide/' },
       { text: 'Plugin', link: '/plugin/' },
-      { text: 'Boilerplate', link: '/boilerplate/' },
+      // { text: 'Boilerplate', link: '/boilerplate/' },
     ],
     editLinks: true,
     sidebarDepth: 4,
