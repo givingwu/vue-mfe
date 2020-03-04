@@ -36,7 +36,7 @@ GIF:
 + 使用 `vue add mfe` 安装 `vue-cli-plugin-mfe` 插件
 
 ```bash
-vue add mfe --registry=http://172.16.0.132:18081/repository/npm/
+vue add mfe --registry=/your/registry/path
 ```
 
 GIF:
