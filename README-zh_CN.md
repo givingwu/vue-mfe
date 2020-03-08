@@ -7,11 +7,9 @@
   <br>
 </p>
 
-
-
 # VueMfe
 
-✨😊 基于 Vue.js 设计的微前端解决方案. [English](./README.md) | [示例](https://vuchan.github.io/vue-mfe)
+✨😊 基于 Vue.js 设计的微前端解决方案. [English](./README.md) | [文档](https://vue-mfe.netlify.com/)| [示例](https://vuchan.github.io/vue-mfe)
 
 ```bash
 ___________
@@ -19,13 +17,12 @@ ___________
 | | |   |__
 ```
 
-
 ## FEATURES
-+ 支持动态注入子路由、嵌套路由。
-+ 支持通过动态路由懒加载应用、嵌套子应用。
-+ 支持远程懒加载模块或者组件。
-+ 支持子应用独立开发，独立构建(需插件支持)。
 
+- 支持动态注入子路由、嵌套路由。
+- 支持通过动态路由懒加载应用、嵌套子应用。
+- 支持远程懒加载模块或者组件。
+- 支持子应用独立开发，独立构建(需插件支持)。
 
 ## How
 
@@ -35,13 +32,12 @@ Vue-MFE 实现的微前端原理是基于基座(App)，当基座项目拦截到�
   <img alt="vue-mfe base info" src="docs/.vuepress/public/images/vue-mfe-base.jpeg" width="600" height="400">
 </p>
 
-
 ## DEMO
+
 ```bash
 npm install
 npm run example
 ```
-
 
 ## USAGE
 
@@ -61,7 +57,6 @@ export default createApp({
 })
 ```
 
-
 ### Step 2
 
 创建子应用。可以创建任意多个子应用，前提是 prefix 不能重复。
@@ -79,10 +74,9 @@ export default createSubApp({
 })
 ```
 
-
 ## API
 
-+ `VueMfe.createApp({}: AppConfig): void` 创建主(基座)应用 [source code](./src/index.js#L42)
+- `VueMfe.createApp({}: AppConfig): void` 创建主(基座)应用 [source code](./src/index.js#L42)
 
 ```js
 import { createApp } from 'vue-mfe'
@@ -111,12 +105,11 @@ export default createApp({
   router,
   sensitive: false,
   parentPath: '/',
-  resources: () => {},
+  resources: () => {}
 })
 ```
 
-
-+ `VueMfe.createSubApp({}: SubAppConfig): SubAppConfig` 创建子应用 [source code](./src/index.js#L82)
+- `VueMfe.createSubApp({}: SubAppConfig): SubAppConfig` 创建子应用 [source code](./src/index.js#L82)
 
 ```js
 import { createSubApp } from 'vue-mfe'
@@ -151,16 +144,14 @@ export default createSubApp({
   init: (rootApp) => {},
   // 可选，子应用暴露出的组件。后续可通过 `VueMfe.Lazy('prefix.components.componentName')` 访问到子应用所暴露的对应组件。
   components: {
-    example: () =>
-      import('./components/example'),
-  },
+    example: () => import('./components/example')
+  }
 })
 ```
 
+- `VueMfe.Lazy(path: string): Promise<any>` 懒加载模块或者组件 [source code](./src/core/lazy.js)
 
-+ `VueMfe.Lazy(path: string): Promise<any>` 懒加载模块或者组件 [source code](./src/core/lazy.js)
-
-```js
+````js
 import VueMfe from 'vue-mfe'
 
 /**
@@ -182,10 +173,9 @@ import VueMfe from 'vue-mfe'
  *  ```
  */
 VueMfe.Lazy('demo.components.example')
-```
+````
 
-
-+ `VueMfe.isInstalled(prefix: string): boolean` 当前应用是否已被安装 [source code](./src/core/app/status.js)
+- `VueMfe.isInstalled(prefix: string): boolean` 当前应用是否已被安装 [source code](./src/core/app/status.js)
 
 ```js
 import VueMfe from 'vue-mfe'
@@ -197,12 +187,11 @@ import VueMfe from 'vue-mfe'
 VueMfe.isInstalled('demo')
 ```
 
-
 ## TODO
-+ [ ] unit test cases
-+ [x] deploy docs by vuepress & netlify
-+ [x] publish package to npm registry
 
+- [ ] unit test cases
+- [x] deploy docs by vuepress & netlify
+- [x] publish package to npm registry
 
 ## Thanks
 

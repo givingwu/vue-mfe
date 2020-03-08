@@ -7,11 +7,9 @@
   <br>
 </p>
 
-
-
 # VueMfe
 
-✨😊 A micro-frontend solution based on Vue.js. [中文](./README-zh_CN.md) | [DEMO](https://vuchan.github.io/vue-mfe)
+✨😊 A micro-frontend solution based on Vue.js. [中文](./README-zh_CN.md) | [Doc](https://vue-mfe.netlify.com/) | [Demo](https://vuchan.github.io/vue-mfe)
 
 ```bash
 ___________
@@ -19,30 +17,27 @@ ___________
 | | |   |__
 ```
 
-
 ## FEATURES
-+ Support dynamically add child routes to an existing route & nested route.
-+ Support dynamically load sub-application & nested sub-application.
-+ Support lazy load module or component from remote.
-+ Support sub-application independently develop & build(need mfe plugin supports).
 
+- Support dynamically add child routes to an existing route & nested route.
+- Support dynamically load sub-application & nested sub-application.
+- Support lazy load module or component from remote.
+- Support sub-application independently develop & build(need mfe plugin supports).
 
 ## How
 
 The micro-frontend principle implemented by Vue-MFE is based on the pedestal (App). When the pedestal project intercepts the route without matching, it will try to dynamically load the sub-application (SubApp) routes. And after the sub-application routes is successfully injected into the pedestal's routing instance `this.$router`, `next(to)` thus achieves a complete closed loop.
 
-
 <p align="center">
   <img alt="vue-mfe base info" src="docs/.vuepress/public/images/vue-mfe-base.jpeg" width="600" height="400">
 </p>
 
-
 ## DEMO
+
 ```bash
 npm install
 npm run example
 ```
-
 
 ## USAGE
 
@@ -58,7 +53,6 @@ export default createApp({
   router
 })
 ```
-
 
 ### Step 2
 
@@ -77,10 +71,9 @@ export default createSubApp({
 })
 ```
 
-
 ## API
 
-+ `VueMfe.createApp({}: AppConfig)` create the root(pedestal) application [source code](./src/index.js#L42)
+- `VueMfe.createApp({}: AppConfig)` create the root(pedestal) application [source code](./src/index.js#L42)
 
 ```js
 import { createApp } from 'vue-mfe'
@@ -109,12 +102,11 @@ export default createApp({
   router,
   sensitive: false,
   parentPath: '/',
-  resources: () => {},
+  resources: () => {}
 })
 ```
 
-
-+ `VueMfe.createSubApp({}: SubAppConfig)` create a sub-application [source code](./src/index.js#L85)
+- `VueMfe.createSubApp({}: SubAppConfig)` create a sub-application [source code](./src/index.js#L85)
 
 ```js
 import { createSubApp } from 'vue-mfe'
@@ -149,16 +141,14 @@ export default createSubApp({
   resources: ['main.xxxxxxx.css', 'chunk.xxxx.vendors.js', 'demo.xxxx.umd.js'],
   init: (rootApp) => {},
   components: {
-    example: () =>
-      import('./components/example'),
-  },
+    example: () => import('./components/example')
+  }
 })
 ```
 
+- `VueMfe.Lazy(path: string): Promise<any>` lazy load module or component [source code](./src/core/lazy.js)
 
-+ `VueMfe.Lazy(path: string): Promise<any>` lazy load module or component [source code](./src/core/lazy.js)
-
-```js
+````js
 import VueMfe from 'vue-mfe'
 
 /**
@@ -180,10 +170,9 @@ import VueMfe from 'vue-mfe'
  *  ```
  */
 VueMfe.Lazy('demo.components.example')
-```
+````
 
-
-+ `VueMfe.isInstalled(prefix: string): boolean` whether the application is installed or not [source code](./src/core/app/status.js)
+- `VueMfe.isInstalled(prefix: string): boolean` whether the application is installed or not [source code](./src/core/app/status.js)
 
 ```js
 import VueMfe from 'vue-mfe'
@@ -195,13 +184,12 @@ import VueMfe from 'vue-mfe'
 VueMfe.isInstalled('demo')
 ```
 
-
 ## TODO
-+ [ ] unit test cases
-+ [x] deploy docs by vuepress & netlify
-+ [ ] update docs with newest features
-+ [x] publish package to npm registry
 
+- [ ] unit test cases
+- [x] deploy docs by vuepress & netlify
+- [ ] update docs with newest features
+- [x] publish package to npm registry
 
 ## Thanks
 
