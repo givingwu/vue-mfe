@@ -3,69 +3,44 @@ title: 介绍
 lang: zh-CN
 meta:
   - name: description
-    content: VUE-MFE 快速上手
+    content: vue-mfe 是什么？
   - name: keywords
-    content: vue, vue-mfe, VUE-MFE
+    content: vue, vue-mfe, vue micro-frontends, VUE-MFE
 ---
 
-# MFE
-MFE 是 micro front-end 的缩写，即**微前端**，对于**微前端**以下文章中有全面的分析：
+# Vue-MFE
 
-+ [Micro-FrontEnds](https://micro-frontends.org/)
-+ [微前端的那些事儿](https://github.com/phodal/microfrontends)
-+ [中台微服务了，那前端呢？](https://mp.weixin.qq.com/s/hke92257-EB1ksrV6tb-mg)
-+ [用微前端的方式搭建类单页应用](https://tech.meituan.com/2018/09/06/fe-tiny-spa.html)
+✨ 基于[Vue.js](https://vuejs.org/)技术栈设计的微前端解决方案。
 
+## What
 
-## 社区实现
+- 通过**中心化路由器** `router: VueRouter` 的 `beforeHook` 探测子应用
+- 提供**资源懒加载器** `loader`
+- 提供**远程模块加载** `VueMfe.Lazy(SubApp.moduleName.propertyName: string)`
 
-社区的实现(Community implementations)，Framework Support & Projects Table:
+## Why
 
-| all                                     | vue                                          | react                                                                                 | angular                                |
-| --------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------- |
-| [single-spa](https://single-spa.js.org) | [vue-mfe](https://github.com/vuchan.vue-mfe) | [feature-hub](https://feature-hub.io)                                                 | [mooa](https://github.com/phodal/mooa) |
-|                                         | [frint.js](https://frint.js.org)             | [frint.js](https://frint.js.org)                                                      |                                        |
-|                                         |                                              | [react-universal-component](https://github.com/faceyspacey/react-universal-component) |                                        |
+- 支持**动态注入**路由到中心化路由器 `router.addRoutes(routes: VueRoute[], parentPath: string)`
+- 支持**懒加载子应用**
+- 支持**嵌套子应用**
+- 支持**懒加载组件**或**模块**
+- 支持**独立开发**和**独立构建**(将入口文件构建成 UMD 格式即可)
 
+## How
 
-## What?
-`vue-mfe` 是一个用于快速创建基于 vue.js 微前端 SPA 的 JavaScript 库。
+Vue-MFE 实现的微前端原理是基于基座(VueMfe App)。
 
+1. 当用户初次访问路由`/prefix/*`
+2. 使用`VueMfe.createApp(router)`注册 **微前端主应用`App`**(即基座自身)
+3. 判断当前`app.$router`是否存在路由`prefix`
+4. 动态装载 **微前端子应用`SubApp`** 的静态资源和路由
+5. 跳转到用户访问的路由`prefix`实现完整闭环
 
-## Why?
-围绕 [Vue.js](https://vuejs.org/) 技术栈定制实现，无任何重复依赖。
-
-
-## How?
-
-### V1.0.0+
-
-+ 基于事件驱动设计
-+ 支持预安装和懒加载
-+ 增强 [vue-router](http://router.vuejs.org) 功能
-+ 支持动态添加路由及嵌套路由
-
-## How?
-
-### v1.0.0+
-![vue-mfe-architecture-v1](/images/vue-mfe-architecture-v1.jpg)
-
-1. domain-app 将 routes 作为 webpack build 时候的入口并打包成 UMD 格式，暴露一个 当前 domain 路由的全局变量到全局作用域
-2. 当应用在访问`/prefix` 路由的时候如果是个未注册路由，则调用 `config.getResource()` 获取当前 domain 的资源后加载当前 domain 的资源，并动态安装当前 domain 暴露的全局变量路由，安装成功后 `next` 即完成
-
-### v1.1.0+
-
-![vue-mfe-architecture-v1.1](/images/vue-mfe-base.jpeg)
-
-+ 重写核心函数
-+ 重新整理项目结构
-+ 更新 API => `Vue.createApp`, `Vue.createSubApp`
-+ 新增 `Lazy` 方法 => `Vue.Lazy`
-
+![vue-mfe-architecture.jpg](../.vuepress/public/images/vue-mfe-architecture.jpg)
 
 ## installation
 
-### use CDN
+### CDN
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
@@ -73,14 +48,16 @@ MFE 是 micro front-end 的缩写，即**微前端**，对于**微前端**以下
 <script src="https://cdn.jsdelivr.net/npm/vue-mfe/dist/vue-mfe.js"></script>
 ```
 
-### 安装指南
+### CLI
 
 #### yarn
+
 ```bash
 yarn add vue-mfe -S
 ```
 
 #### npm
+
 ```bash
 npm install vue-mfe --save
 ```

@@ -4,9 +4,9 @@ lang: zh-CN
 
 # 快速上手
 
-+ [原理和项目架构](#项目架构)
-+ [查看示例 demo](#demo)
-
+- [项目架构](#项目架构)
+- [API](#api)
+- [DEMO](#demo)
 
 ## 项目架构
 
@@ -20,185 +20,223 @@ lang: zh-CN
  -----------------------------------------------------------------------------------------------
 ```
 
-<!-- ### package-server
-> 静态文件管理服务器 or Your CDN Server address。
+### App
 
-+ 支持 SubApp 资源部署和上传/更新/回滚
-+ 支持获取 master-runtime 所有 SubApp 的入口依赖文件
-+ 支持提示用户更新客户端代码当存在更新时 -->
+微前端主项目(即基座项目)，使用 [VueMfe.createApp](#createapp) 创建。
 
-
-### master-runtime
-> 主运行时项目，即基座项目。
-
-+ 通过 `VueMfe.createApp(config)` 注入主路由，配置，钩子方法
-+ 提供公共 布局、组件、插件、数据 `$store` 等供 SubApp 使用
-+ 提供公共 登录、鉴权、校验 等公共逻辑供 SubApp 使用
-
+- 提供公有登录、鉴权、校验、布局、组件、插件、数据(Vuex.store)等公共服务
+- 通过 `VueMfe.createApp(config)` 注入**中心化路由**，配置，钩子方法
 
 ::: tip **如何处理公共依赖？**
-通过 CDN 引入 UMD 格式处理公共依赖，再在每个 SubApp 中使用相同的 externals，以优化JS文件大小和构建速度(因为SubApp 运行在 master-runtime 中)。
+通过 CDN 引入 UMD 格式处理公共依赖，再在每个 SubApp 中使用相同的 externals，以优化 JS 文件大小和构建速度(因为 SubApp 运行在 App 中)。
 :::
-
-### [vue-mfe](README.md#how)
-
-> 抽离的工具库，聚焦在增强 master-runtime 的全局路由实例`this.$root.$router`以支持 [Micro Front-end](README.md#mfe)。
-
-+ 提供中心化路由的 `beforeHook` 拦截
-+ 提供资源懒加载器 `loader`
-+ 支持动态装载路由 `addRoutes(routes: RouteConfig[], parentPath?: string)`
-+ 提供远程模块加载 `VueMfe.Lazy(SubAppName.moduleName.propertyName)`
-
 
 ### SubApp
 
-> 基于 master-runtime 的各个微应用。
+基于 App(基座) 的各个子应用，使用 [VueMfe.createSubApp](#createsubapp) 创建。
 
-+ build 成 [UMD](https://www.davidbcalhoun.com/2014/what-is-amd-commonjs-and-umd/) 格式供 master-runtime 引入 webpack unmanaged bundle。
-::: tip
-子应用打包成 UMD 格式的主要原因是为了维护一个统一的 webpack build context。主运行时在 PRD 上跑的是 webpack 构建后的bundle 代码，而子应用也支持被独立构建，那么变成了两个独立的 webpack build context 构建生成的 bundle。当时没有找到好的解决办法，所有用 UMD 上了。而后续在写 `VueMfe.Lazy` 的时候看到了社区有一种实现方式是使用 XHR 把 JS 文件请求到后使用 `new Function(require, exports, ${ XHRResponse.bodyText })` 拼接后执行。类似这样[httpVueLoader ScriptContext.compile](https://github.com/FranckFreiburger/http-vue-loader/blob/master/src/httpVueLoader.js#L161)。
-:::
-+ build 的入口**必须是执行 `VueMfe.createApp`的文件**。 (因为该资源会被 [vue-mfe/src/helpers/loader.js](https://github.com/vuchan/vue-mfe/blob/master/src/helpers/loader.js#L57) 通过 UMD 的暴露的全局变量动态装载。
-::: warning
-路由的根路由必须以 `/${namespace}/` 开始，且 `${namespace}` 不能存在与另一 domain 的 namespace 重复，否则会抛出 `registerRoutes` 失败的错误
-:::
+- build 成 [UMD](https://www.davidbcalhoun.com/2014/what-is-amd-commonjs-and-umd/) 格式供 [App](#app) 引入 webpack unmanaged bundle。
+  ::: tip
+  子应用打包成 UMD 格式的主要原因是为了维护一个统一的 webpack build context。主运行时在 PRD 上跑的是 webpack 构建后的 bundle 代码，而子应用也支持被独立构建，那么变成了两个独立的 webpack build context 构建生成的 bundle。当时没有找到好的解决办法，所有用 UMD 上了。而后续在写 `VueMfe.Lazy` 的时候看到了社区有一种实现方式是使用 XHR 把 JS 文件请求到后使用 `new Function(require, exports, ${ XHRResponse.bodyText })` 拼接后执行。类似这样 [httpVueLoader ScriptContext.compile](https://github.com/FranckFreiburger/http-vue-loader/blob/master/src/httpVueLoader.js#L161)，但感觉还是没有 UMD 简单方便。
+  :::
+- build 的入口**必须是执行 `VueMfe.createApp`的文件**。 (因为该资源会被 [loader](https://github.com/vuchan/vue-mfe/blob/master/src/helpers/loader.js#L15) 通过 UMD 的暴露的全局变量动态装载。
+  ::: warning
+  路由的根路由必须以 `/${prefix}/` 开始，且 `${prefix}` 不能存在与另一 SubApp 的 prefix 重复，否则会抛出 `registerRoutes` 失败的错误。
+  :::
 
+## API
 
-## DEMO
+使用 [JSDoc](https://jsdoc.zcopy.site/) 注释和声明类型 Interface。
 
-分别展示不使用构建工具和使用时的代码，使用构建工具会增加一定的学习曲线，但是有谁不喜欢构建工具呢？
+### createApp
 
+`VueMfe.createApp({}: AppConfig): void` 创建 VueMfe 主（基座）应用，后续所有的 SubApp 都将被注册和装载到该应用。 [source code](https://github.com/vuchan/vue-mfe/blob/master/src/index.js#L41)
 
-### 无构建工具
+```javascript {38}
+import VueMfe from 'vue-mfe'
+import router from './router/index'
 
-#### HTML template with CDN:
+/**
+ * @typedef {import('vue-router').default} VueRouter
+ * @typedef {import('vue-router').RouteConfig} VueRoute
+ *
+ * @typedef {Object} VueMfeRoute
+ * @property {string} [parentPath] 可选，父路径，即被注册(嵌套)到那个路由下
+ * @property {string|Array<string>} [childrenApps] 可选，被嵌套的子应用
+ * @typedef {VueRoute & VueMfeRoute} Route
+ *
+ * @typedef {Object} VueMfeRouter
+ * @property {import('vue-router').RouterOptions} [options]
+ * @property {{}} [matcher]
+ * @typedef {VueRouter & VueMfeRouter} Router
+ *
+ * @typedef AppConfig
+ * @property {Router} router 必选，主应用 VueRouter 根实例
+ * @property {boolean} [sensitive] 可选，默认 false，是否对大小写敏感 '/AuTh/uSEr' => '/auth/user'
+ * @property {string} [parentPath] 可选，默认 '/'，默认路由被嵌套的父路径
+ * @property {Resources} [resources] 可选，获取资源的配置函数，支持同步/异步的函数/对象。
+ * @typedef {SubAppConfig|Promise<SubAppConfig>|(()=>SubAppConfig)|(()=>Promise<SubAppConfig>)} ConfigResource
+ * @typedef {Object<string, string[]>|Object<string, ConfigResource>} Resource
+ *
+ * @callback ResourcesFn
+ * @returns {Resource|Resource[]|Promise<Resource>}
+ * @typedef {Resource|Resource[]|ResourcesFn} Resources
+ *
+ * @param {AppConfig} config
+ *
+ * @description
+ *  1. 初始化路由，记录 rootApp
+ *  2. 添加钩子，拦截无匹配路由
+ *  3. 懒加载无匹配路由的 resources
+ */
 
-```HTML
-<!DOCTYPE html>
-<link rel="stylesheet" href="/path/to/any.css">
-<div id="app"></div>
-<script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/vue-router@3.0.6/dist/vue-router.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/vue-mfe/dist/vue-mfe.js"></script>
+export default VueMfe.createApp({
+  router,
+  sensitive: false,
+  parentPath: '/',
+  resources: []
+})
 ```
 
+### createSubApp
 
-#### [master-runtime](#master-runtime) **home**:
+`SubAppConfig: createSubApp({}: SubAppConfig)` 创建一个 VueMfe SubApp 子应用。可以暴露任意组件给其他应用（App 和 SubApp）使用。[source code](https://github.com/vuchan/vue-mfe/blob/master/src/index.js#L84)
 
-```js
-var Home = { template: '<div>This is Home<div><router-view></router-view></div></div>' }
-// 创建主路由
-var MasterRouter = VueMfe.createMasterRouter({
-  // VueRouter 配置项
-  mode: 'hash',
-  base: '/',
-  routes: [
-    { path: '/', name: 'home', component: Home },
-  ],
-  // Vue-MFE 配置项
-  onLoadStart(name) {}, // 加载开始时被调用 (name: String)
-  onLoadSuccess(name) {}, // 加载成功时被调用 (name: String)
-  onLoadError(error, next) {}, // 加载失败时被调用 (error: Error, next: Function)
-  async getResource() { // 获取需要所有需懒加载的路由入口 JS 文件时被 lazyloader 内部调用
-    return await {
-      'foo': './domain/foo/index.js',  // `/foo/*` foo 的资源入口
-      'bar': './domain/bar/index.js',  // `/bar/*` bar 的资源入口
-    }
+```javascript {26}
+import VueMfe from 'vue-mfe'
+import routes from './routes/index'
+
+/**
+ * createSubApp
+ * @typedef {Object} SubAppConfig
+ * @property {string} prefix 必选，需要被拦截的子应用路由前缀
+ * @property {Route[]} routes 必选，需要被动态注入的子应用路由数组
+ * @property {string} [name] 可选，子应用的中文名称
+ * @property {(app: Vue)=>boolean|Error|Promise<boolean|Error>} [init] 子应用初始化函数和方法
+ * @property {string} [parentPath] 可选，子应用默认的父路径即布局
+ * @property {Resources} [resources] 可选，子应用的 resources 配置项，获取资源的配置函数，支持同步/异步的函数/对象
+ * @property {string} [globalVar] 可选，入口文件 app.umd.js 暴露出的全部变量名称
+ * @property {Object<string, (() => Promise<{}>)|{}>} [components] 可选，暴露出的所有组件
+ *
+ * @param {SubAppConfig} config
+ *
+ * @description
+ *  1. 安装子应用调用 createSubApp 方法
+ *  2. 调用 registerApp 刷新内部的维护的 configMap
+ *  3. 执行 SubApp 的 init(app) => void|boolean 方法，初始化项目的前置依赖
+ *  4. 初始化成功后返回 success 并安装子应用路由
+ *  5. next(to) 到具体的子路由，END
+ */
+
+export default VueMfe.createSubApp({
+  name: '示例项目',
+  routes,
+  prefix: '/demo',
+  parentPath: '/',
+  components: {
+    Example: () => import('./components/example.vue')
   },
-  getNamespace(name) { // umd 全局变量的命名空间规则
-    return `__domain__app__${name}`
+  init(app) {
+    const loggedIn = app.$store.getters['auth/loggedIn']
+    const hasPermission = app.$store.getters['auth/hasPermission']
+
+    if (loggedIn) {
+      if (hasPermission('demo')) {
+        const userInfo = app.$store.getters['auth/currentUser']
+
+        console.log(`用户${userInfo.userName}已登陆`)
+      } else {
+        console.log(`暂无权限`)
+      }
+    } else {
+      console.log(`未登陆`)
+    }
   }
 })
-
-new Vue({
-  router: MasterRouter,
-  template: `
-    <div id="app">
-      <h1>Vue-MFE Demo</h1>
-      <p>Current route name: {{ $route.name }}</p>
-      <ul>
-        <li><router-link :to="{ name: 'home' }">home</router-link></li>
-        <li><router-link :to="{ path: '/foo' }">SubApp foo</router-link></li>
-        <li><router-link :to="{ path: '/bar/123' }">SubApp bar</router-link></li>
-      </ul>
-      <router-view class="view"></router-view>
-    </div>
-  `
-}).$mount('#app')
 ```
 
+### isInstalled
 
-#### [SubApp](#SubApp) foo `./domain/foo/index.js`:
+`VueMfe.isInstalled(prefix: string): boolean` 当前应用是否已被安装过。 [source code](https://github.com/vuchan/vue-mfe/blob/master/src/core/app/status.js#L10)
 
-```js
-window.__domain__app__foo = (function() {
-  const Foo = { template: '<div>This is Foo</div>' }
-  const routes = [{ path: '/foo',  parentPath: '', name: 'foo', component: Foo }]
+```javascript
+import VueMfe from 'vue-mfe'
 
-  return function(app) {
-    return new Promise((resolve, reject) => {
-      if (Math.random() > 0.5) {
-        resolve(routes)
-      } else {
-        const msg = 'initialize SubApp foo failed'
-        console.error(msg)
-        reject(msg)
-        throw new Error(msg)
-      }
-    })
-  }
-}())
-```
-
-#### [SubApp](#SubApp) bar `./domain/bar/index.js`:
-
-```js
-window.__domain__app__bar = (function() {
-  const Bar = { template: '<div>This is Bar {{ $route.params.id }}</div>' }
-  const routes = [{ path: '/bar/:id', parentPath: '', name: 'bar', component: Bar }]
-
-  return routes
-}())
-```
-
-
-### 使用 webpack 构建
-
-#### [master-runtime](#master-runtime)配置
-
-替换 router 成 vue-mfe 的 `createMasterRouter`，以建立中心化路由响应机制。
-
-<<< @/src/router/index.js{4}
-
-##### 发布应用
-将主运行时应用发布到仓库，供 [SubApp](#SubApp) 在开发时使用。
-
-```bash
-cd $HOME/Development/WorkSpace/master-runtime-project
-npm publish --registry http://{yourPrivateNpmRepository}
-```
-
-#### [SubApp](#SubApp) 配置
-
-+ 安装主运行时作为启动依赖
-`npm install {master-runtime-name} --save`
-+ 将 SubApp 的 [webpack entry](https://webpack.js.org/concepts/entry-points/) 修改为主运行时入口，[vue-cli3 修改 entry 的配置文档](https://cli.vuejs.org/config/#pages):
-```js
-module.exports = {
-  configureWebpack: {
-    entry: require('path').resolve('node_modules/{master-runtime-name}/src/main.js'),
-  }
+if (VueMfe.isInstall('prefix')) {
+  console.log('SubApp prefix is installed before.')
+} else {
+  // code here...
 }
 ```
 
-+ 在 SubApp 中启动项目：
+### Lazy
 
-```bash
-npm run start
+`VueMfe.Lazy(path: string): Promise<any>` 远程加载一个 Module，可以是任意合法的 JavaScript 对象。[source code](https://github.com/vuchan/vue-mfe/blob/master/src/core/lazy.js#L25)
+
+::: warning
+在 VueMfe.Lazy 被其他 SubApp 调用之前，SubApp Demo 必须先暴露 Example 组件并打包成 UMD 格式并配置到 App Resource 中。
+:::
+
+```javascript {3}
+import VueMfe from 'vue-mfe'
+
+export default VueMfe.createSubApp({
+  // 暴露出去的组件
+  components: {
+    Example: () => import('@/components/Example')
+  }
+})
 ```
 
-假设：SubApp 中有以下文件 `src/portal.entry.js`，则在本地启动后，访问路径`/portal/a` 时，如果在 master-runtime 项目路由表中不匹配该路由，则会调用 `router._config.getResource()` 方法并通过的 `vue-mfe/lazyloader` 懒加载该命名空间资源。
+在任意一个非 Demo 之外的 SubApp 中执行 VueMfe.Lazy 远程加载 Module:
 
-```js
-{ [require('@root/package.json').name]: import('@/portal.entry.js') }
+````javascript
+import VueMfe from 'vue-mfe'
+
+/**
+ * Lazy
+ * @description 解析传入的名称获取应用前缀，懒加载应用并返回解析后的 module 内部变量
+ * @tutorial
+ *  1. 远程组件内部必须自包含样式
+ *  2. 远程组件同样支持分片加载
+ *  3. 可以引入所有被暴露的模块
+ * @param {string} url appName+delimiter+[propertyName?]+[+delimiter+propertyName?]
+ * @param {string} [delimiter] 分隔符
+ * @example 引入特定 appName 应用下特定 propertyName
+ *  ```js
+ *    const LazyComponent = VueMfe.lazy('appName.propertyName')
+ *  ```
+ * @example 引入 workflow 下入口文件暴露出的 FlowLayout 组件，wf 为 appName，FlowLayout 为 portal.entry.js module 暴露出的变量
+ *  ```js
+ *    const FlowLayout = VueMfe.lazy('wf.components.FlowLayout')
+ *  ```
+ */
+export default {
+  name: 'AsyncComponent',
+  components: {
+    AsyncExample: () => VueMfe.Lazy('demo.components.Example')
+  }
+}
+````
+
+### version
+
+`VueMfe.version: string` 当前版本号。
+
+## DEMO
+
+- [App](https://github.com/vuchan/vue-mfe/blob/master/example/root-app/src/main.js)
+- [SubApp](https://github.com/vuchan/vue-mfe/blob/master/example/sub-app-demo/main.js)
+- [Lazy](https://github.com/vuchan/vue-mfe/blob/master/example/sub-app-lazy/src/views/async.vue)
+
+```bash
+# pull repo
+git clone https://github.com/vuchan/vue-mfe.git
+cd vue-mfe
+
+# 安装依赖
+npm i
+
+# 运行示例项目
+npm run example
 ```

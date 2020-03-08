@@ -10,21 +10,15 @@ module.exports = {
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Guide', link: '/guide/' },
-      { text: 'Plugin', link: '/plugin/' },
+      { text: 'Plugin', link: '/plugin/' }
       // { text: 'Boilerplate', link: '/boilerplate/' },
     ],
     editLinks: true,
     sidebarDepth: 4,
     sidebar: {
-      '/guide/': [
-        '',
-        'getting-started',
-        'coding-agreement',
-        'enhanced-router',
-        'notice-events',
-      ],
+      '/guide/': ['', 'getting-started', 'micro-frontends'],
       '/plugin/': ['', 'getting-started'],
-      '/': ['', '/'],
-    },
-  },
+      '/': ['', '/']
+    }
+  }
 }
