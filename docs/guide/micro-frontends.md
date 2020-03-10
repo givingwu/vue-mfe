@@ -10,7 +10,7 @@ meta:
 
 # 微前端
 
-MFE 是 micro front-end 的缩写，即**微前端**，对于**微前端**以下文章中有全面的分析：
+MFE 是 micro front-end 的缩写(即**微前端**)，对于**微前端**以下文章中有全面的分析：
 
 - [Micro-FrontEnds](https://micro-frontends.org/)
 - [微前端的那些事儿](https://giethub.com/phodal/microfrontends)
