@@ -12,7 +12,7 @@ const router = new VueRouter({ routes })
 createApp({
   router,
   resources: () => ({
-    // when route path stars with 'demo', so VueMfe will think it is demo sub-application
+    // when route path starts with 'demo', so VueMfe will think it is demo sub-application
     demo: () => import('../../sub-app-demo/main'), // load from local
     lazy: () => import('../../sub-app-lazy/src/main') // load from remote
   })
