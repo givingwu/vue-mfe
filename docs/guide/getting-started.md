@@ -27,7 +27,7 @@ lang: zh-CN
 - 提供公有登录、鉴权、校验、布局、组件、插件、数据(Vuex.store)等公共服务
 - 通过 `VueMfe.createApp(config)` 注入**中心化路由**，配置，钩子方法
 
-::: tip **如何处理公共依赖？**
+::: tip 如何处理公共依赖？
 通过 CDN 引入 UMD 格式处理公共依赖，再在每个 SubApp 中使用相同的 externals，以优化 JS 文件大小和构建速度(因为 SubApp 运行在 App 中)。
 :::
 
