@@ -29,7 +29,7 @@ ___________
 The micro-frontend principle implemented by Vue-MFE is based on the pedestal (App). When the pedestal project intercepts the route without matching, it will try to dynamically load the sub-application (SubApp) routes. And after the sub-application routes are successfully injected into the pedestal's routing instance `this.$router`, `next(to)` thus achieves a complete closed loop.
 
 <p align="center">
-  <img alt="vue-mfe base architecture" src="docs/.vuepress/public/images/vue-mfe-architecture.jpg" width="432" height="192">
+  <img alt="vue-mfe base architecture" src="docs/.vuepress/public/images/vue-mfe-architecture.jpg" width="864" height="384">
 </p>
 
 ## DEMO

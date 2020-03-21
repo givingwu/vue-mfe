@@ -29,7 +29,7 @@ ___________
 Vue-MFE 实现的微前端原理是基于基座(App)，当基座项目拦截到无匹配项的路由后会尝试动态加载子应用(SubApp)的路由。并在子应用路由被成功注入到基座的路由实例 `this.$router` 后 `next(to)` 从而实现完整闭环。
 
 <p align="center">
-  <img alt="vue-mfe base info" src="docs/.vuepress/public/images/vue-mfe-base.jpeg" width="600" height="400">
+  <img alt="vue-mfe base architecture" src="docs/.vuepress/public/images/vue-mfe-architecture.jpg" width="864" height="384">
 </p>
 
 ## DEMO
