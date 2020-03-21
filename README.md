@@ -26,7 +26,7 @@ ___________
 
 ## How
 
-The micro-frontend principle implemented by Vue-MFE is based on the pedestal (App). When the pedestal project intercepts the route without matching, it will try to dynamically load the sub-application (SubApp) routes. And after the sub-application routes is successfully injected into the pedestal's routing instance `this.$router`, `next(to)` thus achieves a complete closed loop.
+The micro-frontend principle implemented by Vue-MFE is based on the pedestal (App). When the pedestal project intercepts the route without matching, it will try to dynamically load the sub-application (SubApp) routes. And after the sub-application routes are successfully injected into the pedestal's routing instance `this.$router`, `next(to)` thus achieves a complete closed loop.
 
 <p align="center">
   <img alt="vue-mfe base info" src="docs/.vuepress/public/images/vue-mfe-base.jpeg" width="600" height="400">
@@ -56,7 +56,7 @@ export default createApp({
 
 ### Step 2
 
-Create VueMfe sub-application, you can create arbitrary amount of them but must take care of that each prefix cannot be duplicated.
+Create VueMfe sub-application, you can create an arbitrary amount of them but must take care of that each prefix cannot be duplicated.
 
 ```js
 import routes from './router/routes.js'
@@ -188,9 +188,9 @@ VueMfe.isInstalled('demo')
 
 - [ ] unit test cases
 - [x] deploy docs by vuepress & netlify
-- [ ] update docs with newest features
+- [x] update docs with newest features
 - [x] publish package to npm registry
 
 ## Thanks
 
-If it has any help or inspiration, please give me a star to lights up my days. And if you have any confusing problem just make an issue, i'll fix or answer it when i see that.
+If it has any help or inspiration, please give me a star to lights up my days. And if you have any confusing problem just make an issue, I'll fix or answer it when I see that.
