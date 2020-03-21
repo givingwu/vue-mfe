@@ -23,7 +23,7 @@ Docs are available at https://vue-mfe.netlify.com/ - I am still working on refin
 
 ## License
 
-[Anti@996](https://github.com/996icu/996.ICU/blob/master/LICENSE)
+[Anti@996](./LICENSE)
 
 ## Thanks
 
