@@ -1,6 +1,6 @@
 module.exports = {
   title: 'Vue-MFE',
-  description: '✨A micro-frontend solution based on Vue.js',
+  description: '✨可能是最简单的 Vue.js 微前端实现方式',
   serviceWorker: true,
 
   themeConfig: {
