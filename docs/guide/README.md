@@ -36,7 +36,7 @@ Vue-MFE 实现的微前端原理是基于基座(VueMfe App)。
 4. 动态装载 **微前端子应用`SubApp`** 的静态资源和路由
 5. 跳转到用户访问的路由`prefix`实现完整闭环
 
-![vue-mfe-architecture.jpg](../.vuepress/public/images/vue-mfe-architecture.jpg)
+![vue-mfe-architecture](../.vuepress/public/images/vue-mfe-architecture.png)
 
 ## installation
 

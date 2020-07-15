@@ -21,9 +21,9 @@ MFE 是 micro front-end 的缩写(即**微前端**)，对于**微前端**以下�
 
 社区的实现(Community implementations)，Framework Support & Projects :
 
-| all                                     | vue                                          | react                                                                                 | angular                                |
-| --------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------- |
-| [single-spa](https://single-spa.js.org) | [vue-mfe](https://github.com/vuchan.vue-mfe) | [feature-hub](https://feature-hub.io)                                                 | [mooa](https://github.com/phodal/mooa) |
-|                                         | [frint.js](https://frint.js.org)             | [frint.js](https://frint.js.org)                                                      |                                        |
-|                                         |                                              | [react-universal-component](https://github.com/faceyspacey/react-universal-component) |                                        |
-|                                         |                                              | [qiankun](https://github.com/umijs/qiankun)                                           |                                        |
+| all                                     | vue                                            | react                                                                                 | angular                                |
+| --------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------- |
+| [single-spa](https://single-spa.js.org) | [vue-mfe](https://github.com/givingwu/vue-mfe) | [feature-hub](https://feature-hub.io)                                                 | [mooa](https://github.com/phodal/mooa) |
+|                                         | [frint.js](https://frint.js.org)               | [frint.js](https://frint.js.org)                                                      |                                        |
+|                                         |                                                | [react-universal-component](https://github.com/faceyspacey/react-universal-component) |                                        |
+|                                         |                                                | [qiankun](https://github.com/umijs/qiankun)                                           |                                        |

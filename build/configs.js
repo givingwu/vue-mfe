@@ -14,7 +14,7 @@ const libraryName = process.env.LIBRARY_NAME || package.name
 
 const banner = `/*!
   * ${libraryName} v${version}
-  * (c) ${new Date().getFullYear()} Vuchan
+  * (c) ${new Date().getFullYear()} GivingWu
   * @license MIT
   */`
 

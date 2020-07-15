@@ -17,6 +17,12 @@ ___________
 | | |   |__
 ```
 
+## Architecture
+
+[快速实现一个基于 Vue.js 的微前端应用](https://www.cnblogs.com/givingwu/p/12900255.html)
+
+![vue-mfe-architecture](docs/.vuepress/public/images/vue-mfe-architecture.png)
+
 ## Documentation
 
 Docs are available at https://vue-mfe.netlify.com/ - I am still working on refining it and contributions are welcome!

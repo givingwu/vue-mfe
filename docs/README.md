@@ -11,5 +11,5 @@ features:
   - title: 够易用
     details: 除了懒装载路由和应用资源其他的都不做
 
-footer: MIT License | Copyright © 2019-present Vuchan
+footer: MIT License | Copyright © 2019-present GivingWu
 ---

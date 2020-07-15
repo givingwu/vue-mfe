@@ -39,7 +39,7 @@ lang: zh-CN
   ::: tip
   子应用打包成 UMD 格式的主要原因是为了维护一个统一的 webpack build context。主运行时在 PRD 上跑的是 webpack 构建后的 bundle 代码，而子应用也支持被独立构建，那么变成了两个独立的 webpack build context 构建生成的 bundle。当时没有找到好的解决办法，所有用 UMD 上了。而后续在写 `VueMfe.Lazy` 的时候看到了社区有一种实现方式是使用 XHR 把 JS 文件请求到后使用 `new Function(require, exports, ${ XHRResponse.bodyText })` 拼接后执行。类似这样 [httpVueLoader ScriptContext.compile](https://github.com/FranckFreiburger/http-vue-loader/blob/master/src/httpVueLoader.js#L161)，但感觉还是没有 UMD 简单方便。
   :::
-- build 的入口**必须是执行 `VueMfe.createApp`的文件**。 (因为该资源会被 [loader](https://github.com/vuchan/vue-mfe/blob/master/src/helpers/loader.js#L15) 通过 UMD 的暴露的全局变量动态装载。
+- build 的入口**必须是执行 `VueMfe.createApp`的文件**。 (因为该资源会被 [loader](https://github.com/givingwu/vue-mfe/blob/master/src/helpers/loader.js#L15) 通过 UMD 的暴露的全局变量动态装载。
   ::: warning
   路由的根路由必须以 `/${prefix}/` 开始，且 `${prefix}` 不能存在与另一 SubApp 的 prefix 重复，否则会抛出 `registerRoutes` 失败的错误。
   :::
@@ -50,7 +50,7 @@ lang: zh-CN
 
 ### createApp
 
-`VueMfe.createApp({}: AppConfig): void` 创建 VueMfe 主（基座）应用，后续所有的 SubApp 都将被注册和装载到该应用。 [source code](https://github.com/vuchan/vue-mfe/blob/master/src/index.js#L41)
+`VueMfe.createApp({}: AppConfig): void` 创建 VueMfe 主（基座）应用，后续所有的 SubApp 都将被注册和装载到该应用。 [source code](https://github.com/givingwu/vue-mfe/blob/master/src/index.js#L41)
 
 ```javascript {38}
 import VueMfe from 'vue-mfe'
@@ -100,7 +100,7 @@ export default VueMfe.createApp({
 
 ### createSubApp
 
-`SubAppConfig: createSubApp({}: SubAppConfig)` 创建一个 VueMfe SubApp 子应用。可以暴露任意组件给其他应用（App 和 SubApp）使用。[source code](https://github.com/vuchan/vue-mfe/blob/master/src/index.js#L84)
+`SubAppConfig: createSubApp({}: SubAppConfig)` 创建一个 VueMfe SubApp 子应用。可以暴露任意组件给其他应用（App 和 SubApp）使用。[source code](https://github.com/givingwu/vue-mfe/blob/master/src/index.js#L84)
 
 ```javascript {26}
 import VueMfe from 'vue-mfe'
@@ -157,7 +157,7 @@ export default VueMfe.createSubApp({
 
 ### isInstalled
 
-`VueMfe.isInstalled(prefix: string): boolean` 当前应用是否已被安装过。 [source code](https://github.com/vuchan/vue-mfe/blob/master/src/core/app/status.js#L10)
+`VueMfe.isInstalled(prefix: string): boolean` 当前应用是否已被安装过。 [source code](https://github.com/givingwu/vue-mfe/blob/master/src/core/app/status.js#L10)
 
 ```javascript
 import VueMfe from 'vue-mfe'
@@ -171,7 +171,7 @@ if (VueMfe.isInstall('prefix')) {
 
 ### Lazy
 
-`VueMfe.Lazy(path: string): Promise<any>` 远程加载一个 Module，可以是任意合法的 JavaScript 对象。[source code](https://github.com/vuchan/vue-mfe/blob/master/src/core/lazy.js#L25)
+`VueMfe.Lazy(path: string): Promise<any>` 远程加载一个 Module，可以是任意合法的 JavaScript 对象。[source code](https://github.com/givingwu/vue-mfe/blob/master/src/core/lazy.js#L25)
 
 ::: warning
 在 VueMfe.Lazy 被其他 SubApp 调用之前，SubApp Demo 必须先暴露 Example 组件并打包成 UMD 格式并配置到 App Resource 中。
@@ -225,13 +225,13 @@ export default {
 
 ## DEMO
 
-- [App](https://github.com/vuchan/vue-mfe/blob/master/example/root-app/src/main.js)
-- [SubApp](https://github.com/vuchan/vue-mfe/blob/master/example/sub-app-demo/main.js)
-- [Lazy](https://github.com/vuchan/vue-mfe/blob/master/example/sub-app-lazy/src/views/async.vue)
+- [App](https://github.com/givingwu/vue-mfe/blob/master/example/root-app/src/main.js)
+- [SubApp](https://github.com/givingwu/vue-mfe/blob/master/example/sub-app-demo/main.js)
+- [Lazy](https://github.com/givingwu/vue-mfe/blob/master/example/sub-app-lazy/src/views/async.vue)
 
 ```bash
 # pull repo
-git clone https://github.com/vuchan/vue-mfe.git
+git clone https://github.com/givingwu/vue-mfe.git
 cd vue-mfe
 
 # 安装依赖

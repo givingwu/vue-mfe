@@ -7,5 +7,4 @@
 *.error
 *.log
 *.lock
-createPortalApp.js
-interface.js
+package-lock.json

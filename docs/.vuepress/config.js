@@ -4,7 +4,7 @@ module.exports = {
   serviceWorker: true,
 
   themeConfig: {
-    repo: 'vuchan/vue-mfe',
+    repo: 'givingwu/vue-mfe',
     docsDir: 'docs',
     lastUpdated: 'Last Updated',
     nav: [
