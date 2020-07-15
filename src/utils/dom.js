@@ -1,3 +1,5 @@
+import { isObject } from '../utils/type'
+
 // @ts-nocheck
 /**
  * @description lazy load style from a remote url then returns a promise
@@ -23,14 +25,14 @@ export function lazyloadStyle(url) {
       isError && link && remove(link)
     }
 
-    link.onload = function() {
+    link.onload = function onload() {
       clearState()
       resolve(...arguments)
     }
 
-    link.onerror = function() {
+    link.onerror = function onerror() {
       clearState(true)
-      reject(...arguments)
+      reject(new Error(...arguments))
     }
 
     document.head.appendChild(link)
@@ -71,7 +73,7 @@ export function lazyLoadScript(url, globalVar) {
 
     function onLoadFailed() {
       clearState()
-      reject(...arguments)
+      reject(new Error(...arguments))
     }
 
     if (script.readyState !== undefined) {
@@ -84,14 +86,16 @@ export function lazyLoadScript(url, globalVar) {
         ) {
           onLoadSuccess()
         } else {
-          onLoadFailed('Unknown error happened', evt)
+          onLoadFailed(`Unknown error happened: ${withEvent(evt)}`)
         }
       }
     } else {
       // Others
       script.onload = onLoadSuccess
       script.onerror = function error(evt) {
-        onLoadFailed(`GET ${url} net::ERR_CONNECTION_REFUSED`, evt)
+        onLoadFailed(
+          `GET ${url} net::ERR_CONNECTION_REFUSED:  ${withEvent(evt)}`
+        )
       }
     }
 
@@ -113,4 +117,12 @@ function remove(ele) {
       ele.parentNode.removeChild(ele)
     }
   }
+}
+
+/**
+ * withEvent
+ * @param {Event|string} evt
+ */
+function withEvent(evt) {
+  return `${isObject(evt) ? JSON.stringify(evt) : '' + evt}`
 }

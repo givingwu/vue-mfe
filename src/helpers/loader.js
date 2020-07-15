@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { isDev } from '../utils/env'
 import { warn } from '../utils/index'
+import { retry } from '../utils/retry'
 import { lazyLoadScript, lazyloadStyle } from '../utils/dom'
 import { isArray, isFunction, isObject } from '../utils/type'
 import { getVarName } from '../core/app/config'
@@ -13,23 +14,24 @@ let cached = {}
  * @param {string} prefix
  */
 export function load(prefix) {
-  return (
-    cached[prefix] ||
-    getEntries(prefix).then((url) => {
-      const resources = isFunction(url) ? url() : url
+  return cached[prefix]
+    ? Promise.resolve(cached[prefix])
+    : getEntries(prefix).then((url) => {
+        const resources = isFunction(url) ? url() : url
 
-      try {
-        return isDev && isObject(resources) && !isArray(resources)
-          ? resources /* when local import('url') */
-          : (cached[prefix] = install(
-              (isArray(resources) ? resources : [resources]).filter(Boolean),
-              getVarName(prefix)
-            ))
-      } catch (error) {
-        throw new Error(error)
-      }
-    })
-  )
+        try {
+          return isDev && isObject(resources) && !isArray(resources)
+            ? resources /* when local import('url') */
+            : install(
+                (isArray(resources) ? resources : [resources]).filter(Boolean),
+                getVarName(prefix)
+              ).then((module) => {
+                return (cached[prefix] = module)
+              })
+        } catch (error) {
+          throw new Error(error)
+        }
+      })
 }
 
 /**
@@ -65,8 +67,8 @@ const install = (urls, name) => {
   if (isArray(scripts) && scripts.length) {
     return serialExecute(
       // @ts-ignore
-      scripts.map((script) => () => lazyLoadScript(script, name))
-    )/* .catch((error) => {
+      scripts.map((script) => () => retry(() => lazyLoadScript(script, name)))
+    ) /* .catch((error) => {
       warn(error)
     }) */
   } else {
