@@ -1,5 +1,5 @@
 import { install } from './install'
-import { getAppPrefix } from '../utils/app'
+import { getPrefix } from '../utils/route'
 import { createError } from '../helpers/create-error'
 import { isInstalled, isInstalling } from './app/status'
 import { getChildrenApp, installChildren } from './app/children'
@@ -15,7 +15,9 @@ export function registerHook(router) {
   router.beforeEach(function handleUnmatchableRoute(to, from, next) {
     // @ts-ignore
     if (isUnmatchableRoute(to)) {
-      const prefix = getAppPrefix(to.fullPath || to.path)
+      const prefix = getPrefix(to)
+      if (!prefix) return
+
       const args = { name: prefix, to, from, next }
 
       if (isInstalling(prefix)) {

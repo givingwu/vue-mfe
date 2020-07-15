@@ -1,8 +1,30 @@
-import { isObject } from '../utils/type'
+import { getFirstWord } from '../utils/app'
+import { isObject, isString } from '../utils/type'
+
+/**
+ * getPrefix
+ * @param {import('vue-router').Route} route
+ */
+export function getPrefix(route) {
+  if (isObject(route)) {
+    const path = route.fullPath || route.path
+
+    if (isString(path)) {
+      return getFirstWord(path)
+    }
+
+    const name = route.name
+
+    if (isString(name)) {
+      // we assume that the format of name of route is `AppName.Module.Route`
+      return getFirstWord(name, '.')
+    }
+  }
+}
 
 /**
  * findRoute DFS
- * @typedef {import('vue-router').RouteConfig} Route
+ * @typedef {import('vue-router').Route} Route
  * @param {Array<Route>} routes
  * @param {String} path
  * @returns {Route}
@@ -30,5 +52,9 @@ export function findRoute(routes = [], path) {
  * @param {Route} obj
  */
 export function isRoute(obj) {
-  return obj && isObject(obj) && obj.path && obj.component
+  return !!(
+    isObject(obj) &&
+    (obj.fullPath || obj.path || obj.name) &&
+    obj.component
+  )
 }
