@@ -4,7 +4,7 @@ import { isString, isObject } from '../../utils/type'
  * @typedef {import("../..").AppConfig} AppConfig
  * @typedef {import("../..").SubAppConfig} SubAppConfig
  */
-/** @type {Map<string, AppConfig|SubAppConfig>} */
+/** @type {Map<string, SubAppConfig>} */
 const configMap = new Map()
 
 /**

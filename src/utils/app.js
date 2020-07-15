@@ -2,7 +2,7 @@ import { isObject, isString } from './type'
 
 /**
  * getAppPrefix
- * @param {string|{}|*} refOrStr
+ * @param {string|{}} refOrStr
  */
 export function getAppPrefix(refOrStr) {
   if (isString(refOrStr)) {
@@ -19,7 +19,7 @@ export function getAppPrefix(refOrStr) {
  * @param {string} str
  * @param {string} [delimiter]
  */
-export const getFirstWord = (str, delimiter = '/') =>
+export const getFirstWord = (str = '', delimiter = '/') =>
   str
     .split(delimiter)
     .map((s) => s.trim())
