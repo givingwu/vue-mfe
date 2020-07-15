@@ -1,6 +1,6 @@
 /*!
-  * vue-mfe v1.1.0
-  * (c) 2019 Vuchan
+  * vue-mfe v1.1.1
+  * (c) 2020 GivingWu
   * @license MIT
   */
 import VueRouter from 'vue-router';
@@ -31,6 +31,25 @@ const warn = function warning() {
   }
 };
 
+function retry(fn, retriesLeft = 3, interval = 0) {
+  return new Promise((resolve, reject) => {
+    return fn()
+      .then(resolve)
+      .catch((error) => {
+        if (retriesLeft === 1) {
+          // reject('maximum retries exceeded');
+          reject(error);
+          return
+        }
+
+        setTimeout(() => {
+          // Passing on "reject" is the important part
+          retry(fn, retriesLeft - 1, interval).then(resolve, reject);
+        }, interval);
+      })
+  })
+}
+
 // @ts-nocheck
 /**
  * @description lazy load style from a remote url then returns a promise
@@ -56,14 +75,14 @@ function lazyloadStyle(url) {
       isError && link && remove(link);
     }
 
-    link.onload = function() {
+    link.onload = function onload() {
       clearState();
       resolve(...arguments);
     };
 
-    link.onerror = function() {
+    link.onerror = function onerror() {
       clearState(true);
-      reject(...arguments);
+      reject(new Error(...arguments));
     };
 
     document.head.appendChild(link);
@@ -104,7 +123,7 @@ function lazyLoadScript(url, globalVar) {
 
     function onLoadFailed() {
       clearState();
-      reject(...arguments);
+      reject(new Error(...arguments));
     }
 
     if (script.readyState !== undefined) {
@@ -117,14 +136,16 @@ function lazyLoadScript(url, globalVar) {
         ) {
           onLoadSuccess();
         } else {
-          onLoadFailed('Unknown error happened', evt);
+          onLoadFailed(`Unknown error happened: ${withEvent(evt)}`);
         }
       };
     } else {
       // Others
       script.onload = onLoadSuccess;
       script.onerror = function error(evt) {
-        onLoadFailed(`GET ${url} net::ERR_CONNECTION_REFUSED`, evt);
+        onLoadFailed(
+          `GET ${url} net::ERR_CONNECTION_REFUSED:  ${withEvent(evt)}`
+        );
       };
     }
 
@@ -146,6 +167,14 @@ function remove(ele) {
       ele.parentNode.removeChild(ele);
     }
   }
+}
+
+/**
+ * withEvent
+ * @param {Event|string} evt
+ */
+function withEvent(evt) {
+  return `${isObject(evt) ? JSON.stringify(evt) : '' + evt}`
 }
 
 /**
@@ -299,23 +328,24 @@ let cached = {};
  * @param {string} prefix
  */
 function load(prefix) {
-  return (
-    cached[prefix] ||
-    getEntries(prefix).then((url) => {
-      const resources = isFunction(url) ? url() : url;
+  return cached[prefix]
+    ? Promise.resolve(cached[prefix])
+    : getEntries(prefix).then((url) => {
+        const resources = isFunction(url) ? url() : url;
 
-      try {
-        return isDev && isObject(resources) && !isArray(resources)
-          ? resources /* when local import('url') */
-          : (cached[prefix] = install(
-              (isArray(resources) ? resources : [resources]).filter(Boolean),
-              getVarName(prefix)
-            ))
-      } catch (error) {
-        throw new Error(error)
-      }
-    })
-  )
+        try {
+          return isDev && isObject(resources) && !isArray(resources)
+            ? resources /* when local import('url') */
+            : install(
+                (isArray(resources) ? resources : [resources]).filter(Boolean),
+                getVarName(prefix)
+              ).then((module) => {
+                return (cached[prefix] = module)
+              })
+        } catch (error) {
+          throw new Error(error)
+        }
+      })
 }
 
 /**
@@ -351,8 +381,8 @@ const install = (urls, name) => {
   if (isArray(scripts) && scripts.length) {
     return serialExecute(
       // @ts-ignore
-      scripts.map((script) => () => lazyLoadScript(script, name))
-    )/* .catch((error) => {
+      scripts.map((script) => () => retry(() => lazyLoadScript(script, name)))
+    ) /* .catch((error) => {
       warn(error)
     }) */
   } else {
@@ -380,8 +410,41 @@ const serialExecute = (promises) => {
 };
 
 /**
+ * getFirstWord
+ * @param {string} str
+ * @param {string} [delimiter]
+ */
+const getFirstWord = (str = '', delimiter = '/') =>
+  str
+    .split(delimiter)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .shift();
+
+/**
+ * getPrefix
+ * @param {import('vue-router').Route} route
+ */
+function getPrefix(route) {
+  if (isObject(route)) {
+    const path = route.fullPath || route.path;
+
+    if (isString(path)) {
+      return getFirstWord(path)
+    }
+
+    const name = route.name;
+
+    if (isString(name)) {
+      // we assume that the format of name of route is `AppName.Module.Route`
+      return getFirstWord(name, '.')
+    }
+  }
+}
+
+/**
  * findRoute DFS
- * @typedef {import('vue-router').RouteConfig} Route
+ * @typedef {import('vue-router').Route} Route
  * @param {Array<Route>} routes
  * @param {String} path
  * @returns {Route}
@@ -409,7 +472,11 @@ function findRoute(routes = [], path) {
  * @param {Route} obj
  */
 function isRoute(obj) {
-  return obj && isObject(obj) && obj.path && obj.component
+  return !!(
+    isObject(obj) &&
+    (obj.fullPath || obj.path || obj.name) &&
+    obj.component
+  )
 }
 
 const SUCCESS = 1;
@@ -539,32 +606,6 @@ function installModule(module, name) {
  * @returns {Module&Function}
  */
 const resolveModule = (module) => (module && module.default) || module;
-
-/**
- * getAppPrefix
- * @param {string|{}|*} refOrStr
- */
-function getAppPrefix(refOrStr) {
-  if (isString(refOrStr)) {
-    return getFirstWord(refOrStr)
-  }
-
-  if (isObject(refOrStr)) {
-    return refOrStr.prefix
-  }
-}
-
-/**
- * getFirstWord
- * @param {string} str
- * @param {string} [delimiter]
- */
-const getFirstWord = (str, delimiter = '/') =>
-  str
-    .split(delimiter)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .shift();
 
 /**
  * Lazy
@@ -1152,7 +1193,9 @@ function registerHook(router) {
   router.beforeEach(function handleUnmatchableRoute(to, from, next) {
     // @ts-ignore
     if (isUnmatchableRoute(to)) {
-      const prefix = getAppPrefix(to.fullPath || to.path);
+      const prefix = getPrefix(to);
+      if (!prefix) return
+
       const args = { name: prefix, to, from, next };
 
       if (isInstalling(prefix)) {
@@ -1311,7 +1354,7 @@ function createSubApp(config) {
 }
 
 const VueMfe = {
-  version: '1.1.0',
+  version: '1.1.1',
   Lazy,
   createApp,
   createSubApp,

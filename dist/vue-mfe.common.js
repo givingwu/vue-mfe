@@ -1,6 +1,6 @@
 /*!
-  * vue-mfe v1.1.0
-  * (c) 2019 Vuchan
+  * vue-mfe v1.1.1
+  * (c) 2020 GivingWu
   * @license MIT
   */
 'use strict';
@@ -37,6 +37,28 @@ var warn = function warning() {
   }
 };
 
+function retry(fn, retriesLeft, interval) {
+  if ( retriesLeft === void 0 ) retriesLeft = 3;
+  if ( interval === void 0 ) interval = 0;
+
+  return new Promise(function (resolve, reject) {
+    return fn()
+      .then(resolve)
+      .catch(function (error) {
+        if (retriesLeft === 1) {
+          // reject('maximum retries exceeded');
+          reject(error);
+          return
+        }
+
+        setTimeout(function () {
+          // Passing on "reject" is the important part
+          retry(fn, retriesLeft - 1, interval).then(resolve, reject);
+        }, interval);
+      })
+  })
+}
+
 // @ts-nocheck
 /**
  * @description lazy load style from a remote url then returns a promise
@@ -62,14 +84,17 @@ function lazyloadStyle(url) {
       isError && link && remove(link);
     }
 
-    link.onload = function() {
+    link.onload = function onload() {
       clearState();
       resolve.apply(void 0, arguments);
     };
 
-    link.onerror = function() {
+    link.onerror = function onerror() {
+      var i = arguments.length, argsArray = Array(i);
+      while ( i-- ) argsArray[i] = arguments[i];
+
       clearState(true);
-      reject.apply(void 0, arguments);
+      reject(new (Function.prototype.bind.apply( Error, [ null ].concat( argsArray) )));
     };
 
     document.head.appendChild(link);
@@ -112,8 +137,11 @@ function lazyLoadScript(url, globalVar) {
     }
 
     function onLoadFailed() {
+      var i = arguments.length, argsArray = Array(i);
+      while ( i-- ) argsArray[i] = arguments[i];
+
       clearState();
-      reject.apply(void 0, arguments);
+      reject(new (Function.prototype.bind.apply( Error, [ null ].concat( argsArray) )));
     }
 
     if (script.readyState !== undefined) {
@@ -126,14 +154,16 @@ function lazyLoadScript(url, globalVar) {
         ) {
           onLoadSuccess();
         } else {
-          onLoadFailed('Unknown error happened', evt);
+          onLoadFailed(("Unknown error happened: " + (withEvent(evt))));
         }
       };
     } else {
       // Others
       script.onload = onLoadSuccess;
       script.onerror = function error(evt) {
-        onLoadFailed(("GET " + url + " net::ERR_CONNECTION_REFUSED"), evt);
+        onLoadFailed(
+          ("GET " + url + " net::ERR_CONNECTION_REFUSED:  " + (withEvent(evt)))
+        );
       };
     }
 
@@ -155,6 +185,14 @@ function remove(ele) {
       ele.parentNode.removeChild(ele);
     }
   }
+}
+
+/**
+ * withEvent
+ * @param {Event|string} evt
+ */
+function withEvent(evt) {
+  return ("" + (isObject(evt) ? JSON.stringify(evt) : '' + evt))
 }
 
 /**
@@ -310,23 +348,24 @@ var cached = {};
  * @param {string} prefix
  */
 function load(prefix) {
-  return (
-    cached[prefix] ||
-    getEntries(prefix).then(function (url) {
-      var resources = isFunction(url) ? url() : url;
+  return cached[prefix]
+    ? Promise.resolve(cached[prefix])
+    : getEntries(prefix).then(function (url) {
+        var resources = isFunction(url) ? url() : url;
 
-      try {
-        return isDev && isObject(resources) && !isArray(resources)
-          ? resources /* when local import('url') */
-          : (cached[prefix] = install(
-              (isArray(resources) ? resources : [resources]).filter(Boolean),
-              getVarName(prefix)
-            ))
-      } catch (error) {
-        throw new Error(error)
-      }
-    })
-  )
+        try {
+          return isDev && isObject(resources) && !isArray(resources)
+            ? resources /* when local import('url') */
+            : install(
+                (isArray(resources) ? resources : [resources]).filter(Boolean),
+                getVarName(prefix)
+              ).then(function (module) {
+                return (cached[prefix] = module)
+              })
+        } catch (error) {
+          throw new Error(error)
+        }
+      })
 }
 
 /**
@@ -362,8 +401,8 @@ var install = function (urls, name) {
   if (isArray(scripts) && scripts.length) {
     return serialExecute(
       // @ts-ignore
-      scripts.map(function (script) { return function () { return lazyLoadScript(script, name); }; })
-    )/* .catch((error) => {
+      scripts.map(function (script) { return function () { return retry(function () { return lazyLoadScript(script, name); }); }; })
+    ) /* .catch((error) => {
       warn(error)
     }) */
   } else {
@@ -391,8 +430,45 @@ var serialExecute = function (promises) {
 };
 
 /**
+ * getFirstWord
+ * @param {string} str
+ * @param {string} [delimiter]
+ */
+var getFirstWord = function (str, delimiter) {
+    if ( str === void 0 ) str = '';
+    if ( delimiter === void 0 ) delimiter = '/';
+
+    return str
+    .split(delimiter)
+    .map(function (s) { return s.trim(); })
+    .filter(Boolean)
+    .shift();
+};
+
+/**
+ * getPrefix
+ * @param {import('vue-router').Route} route
+ */
+function getPrefix(route) {
+  if (isObject(route)) {
+    var path = route.fullPath || route.path;
+
+    if (isString(path)) {
+      return getFirstWord(path)
+    }
+
+    var name = route.name;
+
+    if (isString(name)) {
+      // we assume that the format of name of route is `AppName.Module.Route`
+      return getFirstWord(name, '.')
+    }
+  }
+}
+
+/**
  * findRoute DFS
- * @typedef {import('vue-router').RouteConfig} Route
+ * @typedef {import('vue-router').Route} Route
  * @param {Array<Route>} routes
  * @param {String} path
  * @returns {Route}
@@ -422,7 +498,11 @@ function findRoute(routes, path) {
  * @param {Route} obj
  */
 function isRoute(obj) {
-  return obj && isObject(obj) && obj.path && obj.component
+  return !!(
+    isObject(obj) &&
+    (obj.fullPath || obj.path || obj.name) &&
+    obj.component
+  )
 }
 
 var SUCCESS = 1;
@@ -555,35 +635,6 @@ function installModule(module, name) {
  * @returns {Module&Function}
  */
 var resolveModule = function (module) { return (module && module.default) || module; };
-
-/**
- * getAppPrefix
- * @param {string|{}|*} refOrStr
- */
-function getAppPrefix(refOrStr) {
-  if (isString(refOrStr)) {
-    return getFirstWord(refOrStr)
-  }
-
-  if (isObject(refOrStr)) {
-    return refOrStr.prefix
-  }
-}
-
-/**
- * getFirstWord
- * @param {string} str
- * @param {string} [delimiter]
- */
-var getFirstWord = function (str, delimiter) {
-    if ( delimiter === void 0 ) delimiter = '/';
-
-    return str
-    .split(delimiter)
-    .map(function (s) { return s.trim(); })
-    .filter(Boolean)
-    .shift();
-};
 
 /**
  * Lazy
@@ -1185,7 +1236,9 @@ function registerHook(router) {
   router.beforeEach(function handleUnmatchableRoute(to, from, next) {
     // @ts-ignore
     if (isUnmatchableRoute(to)) {
-      var prefix = getAppPrefix(to.fullPath || to.path);
+      var prefix = getPrefix(to);
+      if (!prefix) { return }
+
       var args = { name: prefix, to: to, from: from, next: next };
 
       if (isInstalling(prefix)) {
