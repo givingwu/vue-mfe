@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.1.1
+  * vue-mfe v1.1.2
   * (c) 2020 GivingWu
   * @license MIT
   */
@@ -19,6 +19,9 @@ const isObject = (obj) => obj && typeof obj === 'object';
 
 const isString = (str) => typeof str === 'string';
 
+const isPromise = (p) =>
+  isObject(p) && p instanceof Promise && isFunction(p.then);
+
 const hasConsole = // eslint-disable-next-line no-console
   typeof console !== 'undefined' && typeof console.warn === 'function';
 
@@ -27,7 +30,7 @@ const warn = function warning() {
     throw Error.apply(window, arguments)
   } else {
     // eslint-disable-next-line no-console
-    hasConsole && console.warn.apply(arguments);
+    hasConsole && console.warn.apply(window, arguments);
   }
 };
 
@@ -334,14 +337,20 @@ function load(prefix) {
         const resources = isFunction(url) ? url() : url;
 
         try {
-          return isDev && isObject(resources) && !isArray(resources)
-            ? resources /* when local import('url') */
-            : install(
-                (isArray(resources) ? resources : [resources]).filter(Boolean),
-                getVarName(prefix)
-              ).then((module) => {
-                return (cached[prefix] = module)
+          if (isDev && isObject(resources) && !isArray(resources)) {
+            return resources /* when local import('url') */
+          } else {
+            const result = install(
+              (isArray(resources) ? resources : [resources]).filter(Boolean),
+              getVarName(prefix)
+            );
+
+            if (isPromise(result)) {
+              return result.then((module) => {
+                return module && (cached[prefix] = module)
               })
+            }
+          }
         } catch (error) {
           throw new Error(error)
         }
@@ -368,7 +377,7 @@ const getEntries = (key) => {
  * @param {Array<Link>} urls
  * @param {string} name
  *
- * @returns {Promise<import('..').Resource>}
+ * @returns {Promise<import('..').SubAppConfig|undefined>}
  */
 const install = (urls, name) => {
   const css = urls.filter((url) => url.endsWith('.css'));
@@ -386,7 +395,7 @@ const install = (urls, name) => {
       warn(error)
     }) */
   } else {
-    warn(`No any valid script be found in ${urls}`);
+    return warn(`No any valid script be found in ${urls}`)
   }
 };
 
@@ -1354,7 +1363,7 @@ function createSubApp(config) {
 }
 
 const VueMfe = {
-  version: '1.1.1',
+  version: '1.1.2',
   Lazy,
   createApp,
   createSubApp,

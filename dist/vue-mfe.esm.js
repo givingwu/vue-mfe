@@ -1,5 +1,5 @@
 /*!
-  * vue-mfe v1.1.1
+  * vue-mfe v1.1.2
   * (c) 2020 GivingWu
   * @license MIT
   */
@@ -19,6 +19,8 @@ var isObject = function (obj) { return obj && typeof obj === 'object'; };
 
 var isString = function (str) { return typeof str === 'string'; };
 
+var isPromise = function (p) { return isObject(p) && p instanceof Promise && isFunction(p.then); };
+
 var hasConsole = // eslint-disable-next-line no-console
   typeof console !== 'undefined' && typeof console.warn === 'function';
 
@@ -27,7 +29,7 @@ var warn = function warning() {
     throw Error.apply(window, arguments)
   } else {
     // eslint-disable-next-line no-console
-    hasConsole && console.warn.apply(arguments);
+    hasConsole && console.warn.apply(window, arguments);
   }
 };
 
@@ -348,14 +350,20 @@ function load(prefix) {
         var resources = isFunction(url) ? url() : url;
 
         try {
-          return isDev && isObject(resources) && !isArray(resources)
-            ? resources /* when local import('url') */
-            : install(
-                (isArray(resources) ? resources : [resources]).filter(Boolean),
-                getVarName(prefix)
-              ).then(function (module) {
-                return (cached[prefix] = module)
+          if (isDev && isObject(resources) && !isArray(resources)) {
+            return resources /* when local import('url') */
+          } else {
+            var result = install(
+              (isArray(resources) ? resources : [resources]).filter(Boolean),
+              getVarName(prefix)
+            );
+
+            if (isPromise(result)) {
+              return result.then(function (module) {
+                return module && (cached[prefix] = module)
               })
+            }
+          }
         } catch (error) {
           throw new Error(error)
         }
@@ -382,7 +390,7 @@ var getEntries = function (key) {
  * @param {Array<Link>} urls
  * @param {string} name
  *
- * @returns {Promise<import('..').Resource>}
+ * @returns {Promise<import('..').SubAppConfig|undefined>}
  */
 var install = function (urls, name) {
   var css = urls.filter(function (url) { return url.endsWith('.css'); });
@@ -400,7 +408,7 @@ var install = function (urls, name) {
       warn(error)
     }) */
   } else {
-    warn(("No any valid script be found in " + urls));
+    return warn(("No any valid script be found in " + urls))
   }
 };
 
@@ -1391,7 +1399,7 @@ function createSubApp(config) {
 }
 
 var VueMfe = {
-  version: '1.1.1',
+  version: '1.1.2',
   Lazy: Lazy,
   createApp: createApp,
   createSubApp: createSubApp,
