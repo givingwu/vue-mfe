@@ -3,7 +3,7 @@ import { isDev } from '../utils/env'
 import { warn } from '../utils/index'
 import { retry } from '../utils/retry'
 import { lazyLoadScript, lazyloadStyle } from '../utils/dom'
-import { isArray, isFunction, isObject } from '../utils/type'
+import { isArray, isFunction, isObject, isPromise } from '../utils/type'
 import { getVarName } from '../core/app/config'
 import { getResource } from '../core/app/resources'
 
@@ -20,14 +20,20 @@ export function load(prefix) {
         const resources = isFunction(url) ? url() : url
 
         try {
-          return isDev && isObject(resources) && !isArray(resources)
-            ? resources /* when local import('url') */
-            : install(
-                (isArray(resources) ? resources : [resources]).filter(Boolean),
-                getVarName(prefix)
-              ).then((module) => {
-                return (cached[prefix] = module)
+          if (isDev && isObject(resources) && !isArray(resources)) {
+            return resources /* when local import('url') */
+          } else {
+            const result = install(
+              (isArray(resources) ? resources : [resources]).filter(Boolean),
+              getVarName(prefix)
+            )
+
+            if (isPromise(result)) {
+              return result.then((module) => {
+                return module && (cached[prefix] = module)
               })
+            }
+          }
         } catch (error) {
           throw new Error(error)
         }
@@ -54,7 +60,7 @@ const getEntries = (key) => {
  * @param {Array<Link>} urls
  * @param {string} name
  *
- * @returns {Promise<import('..').Resource>}
+ * @returns {Promise<import('..').SubAppConfig|undefined>}
  */
 const install = (urls, name) => {
   const css = urls.filter((url) => url.endsWith('.css'))
@@ -72,7 +78,7 @@ const install = (urls, name) => {
       warn(error)
     }) */
   } else {
-    warn(`No any valid script be found in ${urls}`)
+    return warn(`No any valid script be found in ${urls}`)
   }
 }
 
