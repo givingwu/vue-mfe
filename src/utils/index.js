@@ -21,7 +21,7 @@ export const warn = function warning() {
     throw Error.apply(window, arguments)
   } else {
     // eslint-disable-next-line no-console
-    hasConsole && console.warn.apply(arguments)
+    hasConsole && console.warn.apply(window, arguments)
   }
 }
 
@@ -34,11 +34,7 @@ export const log = function logging() {
 
 /* https://github.com/reduxjs/redux/blob/master/src/utils/actionTypes.js */
 export const randomString = () =>
-  Math.random()
-    .toString(36)
-    .substring(7)
-    .split('')
-    .join('.')
+  Math.random().toString(36).substring(7).split('').join('.')
 
 /**
  * capitalize
